@@ -1,11 +1,16 @@
 import os
 import sys
+import time
 import threading
 import webbrowser
 import urllib.parse
 import subprocess
+import ctypes
+from pathlib import Path
 import psutil
 import pyautogui
+pyautogui.FAILSAFE = False
+import pyperclip
 import config
 
 CHROME_PATH = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
@@ -75,41 +80,58 @@ def play_youtube(query: str) -> str:
     threading.Thread(target=_do_play, daemon=True).start()
     return f"Playing '{clean_query}' on YouTube now."
 
+def media_control(action: str) -> str:
+    """Pause, resume, or toggle fullscreen for media."""
+    act = action.lower()
+    if any(k in act for k in ["pause", "stop", "resume", "play"]):
+        pyautogui.press("playpause")
+        return f"Toggled media playback, {config.USER_NAME}."
+    elif "fullscreen" in act:
+        pyautogui.press("f")
+        return f"Toggled fullscreen, {config.USER_NAME}."
+    return "Media control executed."
+
 def send_whatsapp(contact_or_number: str, message: str) -> str:
-    """Send a WhatsApp message to a specific contact or phone number."""
+    """
+    Automates WhatsApp Desktop directly by contact name (or number)
+    just like in the demo video.
+    """
     contact_clean = contact_or_number.strip()
-    phone = config.get_whatsapp_contact(contact_clean)
-    
-    if not phone:
-        digits_only = "".join(filter(str.isdigit, contact_clean))
-        if len(digits_only) >= 9:
-            phone = digits_only
-
-    if not phone:
-        return (
-            f"Could not find phone number for '{contact_or_number}'. "
-            f"Please save their number first in settings."
-        )
-
-    if phone.startswith("0"):
-        phone = "94" + phone[1:]
+    clean_msg = message.strip()
 
     def _do_send():
-        try:
-            import pywhatkit
-            pywhatkit.sendwhatmsg_instantly(
-                phone_no=f"+{phone}",
-                message=message,
-                wait_time=10,
-                tab_close=False
-            )
-        except Exception:
-            encoded_msg = urllib.parse.quote(message)
-            url = f"https://web.whatsapp.com/send?phone={phone}&text={encoded_msg}"
-            open_in_browser(url, force_chrome=True)
+        # 1. Bring WhatsApp Desktop to front
+        os.system("start whatsapp:")
+        time.sleep(1.8)
+
+        # 2. Focus search bar (Ctrl + F)
+        pyautogui.hotkey("ctrl", "f")
+        time.sleep(0.4)
+
+        # Clear previous search
+        pyautogui.hotkey("ctrl", "a")
+        pyautogui.press("backspace")
+        time.sleep(0.2)
+
+        # 3. Paste contact name via clipboard
+        pyperclip.copy(contact_clean)
+        pyautogui.hotkey("ctrl", "v")
+        time.sleep(1.2)
+
+        # 4. Select the first matched contact
+        pyautogui.press("down")
+        time.sleep(0.2)
+        pyautogui.press("enter")
+        time.sleep(0.8)
+
+        # 5. Type and send message
+        pyperclip.copy(clean_msg)
+        pyautogui.hotkey("ctrl", "v")
+        time.sleep(0.4)
+        pyautogui.press("enter")
 
     threading.Thread(target=_do_send, daemon=True).start()
-    return f"Sending message '{message}' to {contact_or_number} on WhatsApp."
+    return f"Sending reply to {contact_clean} on WhatsApp, {config.USER_NAME}."
 
 def open_application(app_name: str) -> str:
     """Open desktop apps, websites, or search Google intelligently."""
@@ -159,6 +181,44 @@ def open_application(app_name: str) -> str:
 
     # Safe fallback: Search on Google in Chrome instead of Windows 'file not found' error
     return search_google(app_name, in_chrome=True)
+
+def close_application(app_name: str) -> str:
+    """Closes a running desktop application."""
+    app_clean = app_name.lower().strip()
+    proc_map = {
+        "chrome": "chrome.exe",
+        "google chrome": "chrome.exe",
+        "notepad": "notepad.exe",
+        "calculator": "CalculatorApp.exe",
+        "calc": "CalculatorApp.exe",
+        "vscode": "Code.exe",
+        "vs code": "Code.exe",
+        "spotify": "Spotify.exe",
+        "whatsapp": "WhatsApp.exe",
+        "cmd": "cmd.exe"
+    }
+    target_exe = proc_map.get(app_clean, f"{app_clean}.exe")
+    os.system(f"taskkill /f /im {target_exe} >nul 2>&1")
+    return f"Closed {app_name}, {config.USER_NAME}."
+
+def take_screenshot() -> str:
+    """Takes a screenshot and saves it to user's Pictures folder."""
+    try:
+        user_pictures = Path.home() / "Pictures" / "Screenshots"
+        user_pictures.mkdir(parents=True, exist_ok=True)
+        filename = f"Screenshot_{time.strftime('%Y%m%d_%H%M%S')}.png"
+        filepath = user_pictures / filename
+        from PIL import ImageGrab
+        img = ImageGrab.grab(all_screens=True)
+        img.save(str(filepath))
+        return f"Screenshot captured and saved to Pictures/Screenshots, {config.USER_NAME}."
+    except Exception as e:
+        return f"Could not capture screenshot: {str(e)}"
+
+def lock_pc() -> str:
+    """Locks the Windows computer."""
+    ctypes.windll.user32.LockWorkStation()
+    return f"Locking workstation now, {config.USER_NAME}."
 
 def control_volume(action: str) -> str:
     """Control system volume: 'up', 'down', 'mute'."""

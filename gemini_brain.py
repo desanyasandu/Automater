@@ -45,24 +45,49 @@ def fast_local_dispatch(text: str) -> str | None:
                 actions.play_youtube(song)
                 return f"Right away, {config.USER_NAME}. Playing '{song}' on YouTube now."
 
-    # 3. WhatsApp Automation
-    wa_match1 = re.search(r"send\s+(?:a\s+)?message\s+['\"]?([^'\"]+?)['\"]?\s+to\s+([a-zA-Z0-9_]+)", text, re.IGNORECASE)
-    wa_match2 = re.search(r"send\s+['\"]?([^'\"]+?)['\"]?\s+to\s+([a-zA-Z0-9_]+)\s+on\s+whatsapp", text, re.IGNORECASE)
-    wa_match3 = re.search(r"tell\s+([a-zA-Z0-9_]+)\s+['\"]?([^'\"]+?)['\"]?\s+on\s+whatsapp", text, re.IGNORECASE)
+    # 3. WhatsApp Desktop Automation (Matches patterns like in demo video)
+    # Pattern 1: "open whatsapp and send a reply to Bhagya IT saying kohomada eka"
+    wa_reply = re.search(r"(?:open\s+whatsapp\s+and\s+)?send\s+(?:a\s+)?reply\s+to\s+(.*?)\s+saying\s+(.+)$", text, re.IGNORECASE)
+    if wa_reply:
+        contact, msg = wa_reply.group(1).strip(), wa_reply.group(2).strip()
+        actions.send_whatsapp(contact, msg)
+        return f"Sending reply to {contact} on WhatsApp for you, {config.USER_NAME}."
+
+    # Pattern 2: "send a message to [contact] on whatsapp saying [msg]"
+    wa_msg_saying = re.search(r"send\s+(?:a\s+)?message\s+(?:to\s+)?(.*?)\s+on\s+whatsapp\s+saying\s+(.+)$", text, re.IGNORECASE)
+    if wa_msg_saying:
+        contact, msg = wa_msg_saying.group(1).strip(), wa_msg_saying.group(2).strip()
+        actions.send_whatsapp(contact, msg)
+        return f"Sending that message to {contact} on WhatsApp for you, {config.USER_NAME}."
+
+    # Pattern 3: "open whatsapp and send a message 'hi' to dad" or "send hi to dad on whatsapp"
+    wa_match1 = re.search(r"send\s+(?:a\s+)?message\s+['\"]?([^'\"]+?)['\"]?\s+to\s+([a-zA-Z0-9_\s]+?)(?:\s+on\s+whatsapp)?$", text, re.IGNORECASE)
+    wa_match2 = re.search(r"send\s+['\"]?([^'\"]+?)['\"]?\s+to\s+([a-zA-Z0-9_\s]+?)\s+on\s+whatsapp$", text, re.IGNORECASE)
+    wa_match3 = re.search(r"tell\s+([a-zA-Z0-9_\s]+?)\s+['\"]?([^'\"]+?)['\"]?\s+on\s+whatsapp$", text, re.IGNORECASE)
     
     if wa_match1 or wa_match2:
         m = wa_match1 or wa_match2
         msg, contact = m.group(1).strip(), m.group(2).strip()
         actions.send_whatsapp(contact, msg)
-        return f"Right away, {config.USER_NAME}. Sending '{msg}' to {contact} on WhatsApp."
+        return f"Sending that message to {contact} on WhatsApp for you, {config.USER_NAME}."
     elif wa_match3:
         contact, msg = wa_match3.group(1).strip(), wa_match3.group(2).strip()
         actions.send_whatsapp(contact, msg)
-        return f"Right away, {config.USER_NAME}. Sending '{msg}' to {contact} on WhatsApp."
+        return f"Sending that message to {contact} on WhatsApp for you, {config.USER_NAME}."
 
-    # 4. Web Search & Open in Chrome
+    # 4. Screenshot & Lock PC
+    if any(k in t for k in ["take a screenshot", "capture screen", "screenshot"]):
+        return actions.take_screenshot()
+    if any(k in t for k in ["lock pc", "lock the pc", "lock computer", "lock screen", "lock workstation"]):
+        return actions.lock_pc()
+
+    # 5. Media Playback Controls
+    if any(k in t for k in ["pause video", "pause music", "pause playback", "resume video", "resume music", "fullscreen"]):
+        return actions.media_control(t)
+
+    # 6. Web Search & Open in Chrome
     # Pattern A: "open <site> in chrome" (e.g. "open gemini in chrome", "open temu in chrome")
-    in_chrome_match = re.search(r"open\s+(.+?)\s+(?:in|on)\s+chrome", t)
+    in_chrome_match = re.search(r"open\s+(.+?)\s+(?:in|on)\s+chrome$", t)
     if in_chrome_match:
         site = in_chrome_match.group(1).strip()
         return actions.open_application(site)
@@ -80,7 +105,7 @@ def fast_local_dispatch(text: str) -> str | None:
         if q not in ["status", "pc status"]:
             return actions.search_google(q, in_chrome=True)
 
-    # 5. Volume Control
+    # 7. Volume Control
     if "volume up" in t or "increase volume" in t:
         return actions.control_volume("up")
     if "volume down" in t or "decrease volume" in t or "lower volume" in t:
@@ -88,7 +113,13 @@ def fast_local_dispatch(text: str) -> str | None:
     if "mute" in t or "unmute" in t:
         return actions.control_volume("mute")
 
-    # 6. Open Apps & Websites
+    # 8. Close Application
+    close_match = re.search(r"^close\s+(.+)$", t)
+    if close_match:
+        target = close_match.group(1).strip()
+        return actions.close_application(target)
+
+    # 9. Open Apps & Websites
     open_match = re.search(r"^open\s+(.+)$", t)
     if open_match:
         target = open_match.group(1).strip()
