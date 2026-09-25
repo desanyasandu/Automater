@@ -60,7 +60,27 @@ def fast_local_dispatch(text: str) -> str | None:
         actions.send_whatsapp(contact, msg)
         return f"Right away, {config.USER_NAME}. Sending '{msg}' to {contact} on WhatsApp."
 
-    # 4. Volume Control
+    # 4. Web Search & Open in Chrome
+    # Pattern A: "open <site> in chrome" (e.g. "open gemini in chrome", "open temu in chrome")
+    in_chrome_match = re.search(r"open\s+(.+?)\s+(?:in|on)\s+chrome", t)
+    if in_chrome_match:
+        site = in_chrome_match.group(1).strip()
+        return actions.open_application(site)
+
+    # Pattern B: "open chrome and search <query>" or "search <query> in chrome/on google"
+    b1_match = re.search(r"^open\s+chrome\s+and\s+search\s+(?:for\s+)?(.+)$", t)
+    if b1_match and b1_match.group(1).strip():
+        q = b1_match.group(1).strip()
+        return actions.search_google(q, in_chrome=True)
+
+    # Pattern C: "search for <query>", "search <query>", "google <query>"
+    search_match2 = re.search(r"^(?:search\s+for|search|google)\s+(.+?)(?:\s+in\s+chrome|\s+on\s+google)?$", t)
+    if search_match2 and search_match2.group(1).strip():
+        q = search_match2.group(1).strip()
+        if q not in ["status", "pc status"]:
+            return actions.search_google(q, in_chrome=True)
+
+    # 5. Volume Control
     if "volume up" in t or "increase volume" in t:
         return actions.control_volume("up")
     if "volume down" in t or "decrease volume" in t or "lower volume" in t:
@@ -68,33 +88,11 @@ def fast_local_dispatch(text: str) -> str | None:
     if "mute" in t or "unmute" in t:
         return actions.control_volume("mute")
 
-    # 5. Open Apps
-    app_keywords = {
-        "chrome": "Google Chrome",
-        "google chrome": "Google Chrome",
-        "youtube": "YouTube",
-        "whatsapp": "WhatsApp",
-        "notepad": "Notepad",
-        "calculator": "Calculator",
-        "calc": "Calculator",
-        "vscode": "Visual Studio Code",
-        "vs code": "Visual Studio Code",
-        "code": "Visual Studio Code",
-        "spotify": "Spotify",
-        "file explorer": "File Explorer",
-        "explorer": "File Explorer",
-        "settings": "Windows Settings",
-        "task manager": "Task Manager"
-    }
+    # 6. Open Apps & Websites
     open_match = re.search(r"^open\s+(.+)$", t)
     if open_match:
-        target_app = open_match.group(1).strip()
-        if target_app in app_keywords:
-            actions.open_application(target_app)
-            return f"Opening {app_keywords[target_app]}, {config.USER_NAME}."
-        elif len(target_app.split()) <= 3:
-            actions.open_application(target_app)
-            return f"Launching {target_app}, {config.USER_NAME}."
+        target = open_match.group(1).strip()
+        return actions.open_application(target)
 
     return None
 
