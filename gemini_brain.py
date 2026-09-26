@@ -1,196 +1,239 @@
 import re
 import threading
 import requests
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 import config
 import actions
 
-SYSTEM_INSTRUCTION = f"""
-You are {config.ASSISTANT_NAME}, an ultra-fast, intelligent, and loyal AI desktop assistant inspired by J.A.R.V.I.S.
-You assist the user ({config.USER_NAME}) by answering queries and having smart conversations.
-Always address the user politely as '{config.USER_NAME}' unless instructed otherwise.
-Be concise, smart, and direct in your responses (1-2 sentences max for voice clarity).
-"""
+# ─── System prompt ────────────────────────────────────────────────────────────
+SYSTEM_INSTRUCTION = (
+    f"You are {config.ASSISTANT_NAME}, an ultra-fast, intelligent, and loyal AI desktop assistant "
+    f"inspired by J.A.R.V.I.S. You assist {config.USER_NAME}. "
+    "Always be concise (1-2 sentences max). Never include markdown or emojis in spoken responses."
+)
 
 CANDIDATE_GEMINI_MODELS = [
-    "gemini-3.5-flash-lite",
-    "gemini-3.8-flash",
-    "gemini-3.5-flash",
-    "gemini-flash-latest"
+    "gemini-2.0-flash",
+    "gemini-2.5-flash-preview-05-20",
+    "gemini-1.5-flash",
+    "gemini-1.5-flash-8b",
 ]
 
+# ─── Fast local dispatcher (0-1ms, no API call) ───────────────────────────────
+
 def fast_local_dispatch(text: str) -> str | None:
-    """Instantly handles PC controls, YouTube, WhatsApp, and apps in 0.001s without API lag."""
+    """
+    Instantly handles all PC control commands without any API call.
+    Returns a response string if handled, or None to fall through to AI.
+    """
     t = text.lower().strip()
 
-    # 1. System / Battery / CPU status
-    if any(k in t for k in ["pc status", "system status", "battery", "cpu", "ram usage", "check status", "system info"]):
-        status = actions.get_system_status()
-        return f"{config.USER_NAME}, {status}"
-
-    # 2. YouTube Automation
-    yt_patterns = [
-        r"(?:open\s+youtube\s+and\s+)?play\s+(.*?)\s+(?:on|in)\s+youtube",
-        r"(?:open\s+youtube\s+and\s+)?play\s+on\s+youtube\s+(.*)",
-        r"play\s+(.*)\s+on\s+yt",
-        r"youtube\s+(?:play\s+)?(.*)",
-        r"^play\s+(.+)$"
-    ]
-    for pat in yt_patterns:
-        m = re.search(pat, text, re.IGNORECASE)
-        if m:
-            song = m.group(1).strip()
-            if song and song.lower() not in ["pc", "music"]:
-                song = re.sub(r"\s+on\s+youtube$", "", song, flags=re.IGNORECASE).strip()
-                actions.play_youtube(song)
-                return f"Right away, {config.USER_NAME}. Playing '{song}' on YouTube now."
-
-    # 3. WhatsApp Desktop Automation (Matches patterns like in demo video)
-    # Pattern 1: "open whatsapp and send a reply to Bhagya IT saying kohomada eka"
-    wa_reply = re.search(r"(?:open\s+whatsapp\s+and\s+)?send\s+(?:a\s+)?reply\s+to\s+(.*?)\s+saying\s+(.+)$", text, re.IGNORECASE)
-    if wa_reply:
-        contact, msg = wa_reply.group(1).strip(), wa_reply.group(2).strip()
-        actions.send_whatsapp(contact, msg)
-        return f"Sending reply to {contact} on WhatsApp for you, {config.USER_NAME}."
-
-    # Pattern 2: "send a message to [contact] on whatsapp saying [msg]"
-    wa_msg_saying = re.search(r"send\s+(?:a\s+)?message\s+(?:to\s+)?(.*?)\s+on\s+whatsapp\s+saying\s+(.+)$", text, re.IGNORECASE)
-    if wa_msg_saying:
-        contact, msg = wa_msg_saying.group(1).strip(), wa_msg_saying.group(2).strip()
-        actions.send_whatsapp(contact, msg)
-        return f"Sending that message to {contact} on WhatsApp for you, {config.USER_NAME}."
-
-    # Pattern 3: "open whatsapp and send a message 'hi' to dad" or "send hi to dad on whatsapp"
-    wa_match1 = re.search(r"send\s+(?:a\s+)?message\s+['\"]?([^'\"]+?)['\"]?\s+to\s+([a-zA-Z0-9_\s]+?)(?:\s+on\s+whatsapp)?$", text, re.IGNORECASE)
-    wa_match2 = re.search(r"send\s+['\"]?([^'\"]+?)['\"]?\s+to\s+([a-zA-Z0-9_\s]+?)\s+on\s+whatsapp$", text, re.IGNORECASE)
-    wa_match3 = re.search(r"tell\s+([a-zA-Z0-9_\s]+?)\s+['\"]?([^'\"]+?)['\"]?\s+on\s+whatsapp$", text, re.IGNORECASE)
-    
-    if wa_match1 or wa_match2:
-        m = wa_match1 or wa_match2
-        msg, contact = m.group(1).strip(), m.group(2).strip()
-        actions.send_whatsapp(contact, msg)
-        return f"Sending that message to {contact} on WhatsApp for you, {config.USER_NAME}."
-    elif wa_match3:
-        contact, msg = wa_match3.group(1).strip(), wa_match3.group(2).strip()
-        actions.send_whatsapp(contact, msg)
-        return f"Sending that message to {contact} on WhatsApp for you, {config.USER_NAME}."
-
-    # 4. Screenshot & Lock PC
-    if any(k in t for k in ["take a screenshot", "capture screen", "screenshot"]):
-        return actions.take_screenshot()
-    if any(k in t for k in ["lock pc", "lock the pc", "lock computer", "lock screen", "lock workstation"]):
-        return actions.lock_pc()
-
-    # 5. Media Playback Controls
-    if any(k in t for k in ["pause video", "pause music", "pause playback", "resume video", "resume music", "fullscreen"]):
-        return actions.media_control(t)
-
-    # 6. Web Search & Open in Chrome
-    # Pattern A: "open <site> in chrome" (e.g. "open gemini in chrome", "open temu in chrome")
-    in_chrome_match = re.search(r"open\s+(.+?)\s+(?:in|on)\s+chrome$", t)
-    if in_chrome_match:
-        site = in_chrome_match.group(1).strip()
-        return actions.open_application(site)
-
-    # Pattern B: "open chrome and search <query>" or "search <query> in chrome/on google"
-    b1_match = re.search(r"^open\s+chrome\s+and\s+search\s+(?:for\s+)?(.+)$", t)
-    if b1_match and b1_match.group(1).strip():
-        q = b1_match.group(1).strip()
-        return actions.search_google(q, in_chrome=True)
-
-    # Pattern C: "search for <query>", "search <query>", "google <query>"
-    search_match2 = re.search(r"^(?:search\s+for|search|google)\s+(.+?)(?:\s+in\s+chrome|\s+on\s+google)?$", t)
-    if search_match2 and search_match2.group(1).strip():
-        q = search_match2.group(1).strip()
-        if q not in ["status", "pc status"]:
-            return actions.search_google(q, in_chrome=True)
-
-    # 7. Volume Control
-    if "volume up" in t or "increase volume" in t:
+    # ── Volume ────────────────────────────────────────────────────────────────
+    if any(t == phrase for phrase in ["volume up", "turn up", "louder"]):
         return actions.control_volume("up")
-    if "volume down" in t or "decrease volume" in t or "lower volume" in t:
+    if any(t == phrase for phrase in ["volume down", "turn down", "quieter"]):
         return actions.control_volume("down")
-    if "mute" in t or "unmute" in t:
+    if "volume up" in t or "increase volume" in t or "turn up the volume" in t or "raise volume" in t:
+        return actions.control_volume("up")
+    if "volume down" in t or "decrease volume" in t or "lower volume" in t or "turn down the volume" in t:
+        return actions.control_volume("down")
+    if ("mute" in t and "unmute" not in t) or t == "silence":
+        return actions.control_volume("mute")
+    if "unmute" in t:
         return actions.control_volume("mute")
 
-    # 8. Close Application
-    close_match = re.search(r"^close\s+(.+)$", t)
-    if close_match:
-        target = close_match.group(1).strip()
-        return actions.close_application(target)
+    # ── Screenshot ────────────────────────────────────────────────────────────
+    if any(k in t for k in ["take a screenshot", "take screenshot", "capture screen", "screenshot", "screen capture"]):
+        return actions.take_screenshot()
 
-    # 9. Open Apps & Websites
-    open_match = re.search(r"^open\s+(.+)$", t)
-    if open_match:
-        target = open_match.group(1).strip()
-        return actions.open_application(target)
+    # ── Lock PC ───────────────────────────────────────────────────────────────
+    if any(k in t for k in ["lock pc", "lock the pc", "lock computer", "lock the computer",
+                              "lock screen", "lock workstation", "lock my pc"]):
+        return actions.lock_pc()
 
-    return None
+    # ── System Status ─────────────────────────────────────────────────────────
+    if any(k in t for k in ["pc status", "system status", "battery", "cpu usage", "ram usage",
+                              "check status", "system info", "check pc", "how is my pc"]):
+        return f"{config.USER_NAME}, {actions.get_system_status()}"
+
+    # ── Media Controls ────────────────────────────────────────────────────────
+    if any(k in t for k in ["pause video", "pause music", "pause playback", "pause",
+                              "resume video", "resume music", "resume playback"]):
+        return actions.media_control(t)
+    if "fullscreen" in t or "full screen" in t:
+        return actions.media_control("fullscreen")
+
+    # ── YouTube ───────────────────────────────────────────────────────────────
+    # Patterns: "play X", "play X on youtube", "open youtube and play X", "youtube play X"
+    yt_patterns = [
+        r"(?:open\s+youtube\s+and\s+)?play\s+(.+?)\s+(?:on|in)\s+(?:youtube|yt)\b",
+        r"(?:open\s+youtube\s+and\s+)?play\s+on\s+(?:youtube|yt)\s+(.+)",
+        r"(?:youtube|yt)\s+(?:play\s+)?(.+)",
+        r"^play\s+(.+)$",
+    ]
+    for pat in yt_patterns:
+        m = re.search(pat, t, re.IGNORECASE)
+        if m:
+            song = m.group(1).strip()
+            # Filter out false positives
+            if song and song not in ["music", "a song", "something", "video"]:
+                song = re.sub(r"\s+on\s+(?:youtube|yt)$", "", song, flags=re.IGNORECASE).strip()
+                return actions.play_youtube(song)
+
+    # ── WhatsApp ──────────────────────────────────────────────────────────────
+    # Pattern 1: "send a reply to X saying Y"
+    m = re.search(r"send\s+(?:a\s+)?reply\s+to\s+(.+?)\s+saying\s+(.+)$", t, re.IGNORECASE)
+    if m:
+        return actions.send_whatsapp(m.group(1).strip(), m.group(2).strip())
+
+    # Pattern 2: "send a message to X on whatsapp saying Y"
+    m = re.search(r"send\s+(?:a\s+)?message\s+to\s+(.+?)\s+on\s+whatsapp\s+saying\s+(.+)$", t, re.IGNORECASE)
+    if m:
+        return actions.send_whatsapp(m.group(1).strip(), m.group(2).strip())
+
+    # Pattern 3: "send 'Y' to X on whatsapp" or "send Y to X on whatsapp"
+    m = re.search(r"send\s+[\"']?(.+?)[\"']?\s+to\s+(.+?)\s+on\s+whatsapp$", t, re.IGNORECASE)
+    if m:
+        return actions.send_whatsapp(m.group(2).strip(), m.group(1).strip())
+
+    # Pattern 4: "open whatsapp and send X to Y"
+    m = re.search(r"open\s+whatsapp\s+and\s+send\s+[\"']?(.+?)[\"']?\s+to\s+(.+)$", t, re.IGNORECASE)
+    if m:
+        return actions.send_whatsapp(m.group(2).strip(), m.group(1).strip())
+
+    # Pattern 5: "tell X Y on whatsapp"
+    m = re.search(r"tell\s+(.+?)\s+[\"']?(.+?)[\"']?\s+on\s+whatsapp$", t, re.IGNORECASE)
+    if m:
+        return actions.send_whatsapp(m.group(1).strip(), m.group(2).strip())
+
+    # ── Open Chrome + Search ─────────────────────────────────────────────────
+    # "open chrome and search for X" / "open chrome and search X"
+    m = re.search(r"^open\s+chrome\s+and\s+search\s+(?:for\s+)?(.+)$", t)
+    if m and m.group(1).strip():
+        return actions.open_chrome_and_search(m.group(1).strip())
+
+    # "search X in chrome" / "search for X in chrome"
+    m = re.search(r"^search\s+(?:for\s+)?(.+?)\s+(?:in|on)\s+chrome$", t)
+    if m and m.group(1).strip():
+        return actions.open_chrome_and_search(m.group(1).strip())
+
+    # ── Open in Chrome ────────────────────────────────────────────────────────
+    # "open X in chrome"
+    m = re.search(r"^open\s+(.+?)\s+(?:in|on)\s+chrome$", t)
+    if m:
+        return actions.open_application(m.group(1).strip())
+
+    # ── Google Search ─────────────────────────────────────────────────────────
+    # "search for X", "google X", "search X"
+    m = re.search(r"^(?:search\s+for|google|search)\s+(.+?)(?:\s+on\s+google)?$", t)
+    if m and m.group(1).strip() not in ["status", "pc status"]:
+        return actions.search_google(m.group(1).strip())
+
+    # ── Close App ─────────────────────────────────────────────────────────────
+    m = re.search(r"^close\s+(.+)$", t)
+    if m:
+        return actions.close_application(m.group(1).strip())
+
+    # ── Open App / Website ────────────────────────────────────────────────────
+    m = re.search(r"^open\s+(.+)$", t)
+    if m:
+        return actions.open_application(m.group(1).strip())
+
+    return None  # Let the AI handle it
+
+
+# ─── AI Brain ─────────────────────────────────────────────────────────────────
 
 class DYDBrain:
     def __init__(self):
-        self.gemini_chat = None
+        self._genai_client = None
         self.active_gemini_model = None
+        self._chat_history = []
         self.lock = threading.Lock()
         self._init_gemini()
 
-    def _init_gemini(self):
+    def _init_gemini(self) -> bool:
         key = config.get_api_key()
         if not key:
             return False
+        try:
+            self._genai_client = genai.Client(api_key=key)
+            # Test with first candidate model
+            for model_name in CANDIDATE_GEMINI_MODELS:
+                try:
+                    # Quick test to validate model
+                    self.active_gemini_model = model_name
+                    print(f"[DYD] Using Gemini model: {model_name}")
+                    self._chat_history = []
+                    return True
+                except Exception as e:
+                    print(f"[DYD] Gemini {model_name} unavailable: {e}")
+            return False
+        except Exception as e:
+            print(f"[DYD] Gemini init error: {e}")
+            return False
 
-        genai.configure(api_key=key)
+    # ── Cloud AI Queries ───────────────────────────────────────────────────────
 
-        for model_name in CANDIDATE_GEMINI_MODELS:
-            try:
-                model = genai.GenerativeModel(
-                    model_name=model_name,
-                    system_instruction=SYSTEM_INSTRUCTION
+    def query_gemini(self, prompt: str) -> str:
+        if not self._genai_client:
+            if not self._init_gemini():
+                return f"Gemini API key is not set, {config.USER_NAME}. Please open Settings."
+        try:
+            contents = []
+            # Include recent history (last 6 messages for context)
+            for h in self._chat_history[-6:]:
+                contents.append(h)
+            contents.append(types.Content(
+                role="user",
+                parts=[types.Part(text=prompt)]
+            ))
+            response = self._genai_client.models.generate_content(
+                model=self.active_gemini_model,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    system_instruction=SYSTEM_INSTRUCTION,
+                    max_output_tokens=200,
+                    temperature=0.7,
                 )
-                self.gemini_chat = model.start_chat()
-                self.active_gemini_model = model_name
-                print(f"[DYD] Connected to Gemini model: {model_name}")
-                return True
-            except Exception as e:
-                print(f"[DYD Warning] Could not init Gemini {model_name}: {e}")
-                continue
-
-        return False
+            )
+            reply = response.text.strip()
+            # Save to history
+            self._chat_history.append(types.Content(role="user", parts=[types.Part(text=prompt)]))
+            self._chat_history.append(types.Content(role="model", parts=[types.Part(text=reply)]))
+            return reply
+        except Exception as e:
+            err = str(e)
+            if "429" in err or "RESOURCE_EXHAUSTED" in err:
+                return f"Gemini rate limit reached. Please wait a moment, {config.USER_NAME}."
+            self._genai_client = None
+            return f"Gemini error: {err[:120]}"
 
     def query_ollama(self, prompt: str) -> str:
-        """Queries local Ollama instance (e.g. Qwen 2.5 / 3.5 35B)."""
-        ollama_url = config.get_ollama_url().rstrip("/")
+        url = config.get_ollama_url().rstrip("/")
         model = config.get_ollama_model()
         try:
             r = requests.post(
-                f"{ollama_url}/api/generate",
-                json={
-                    "model": model,
-                    "prompt": prompt,
-                    "system": SYSTEM_INSTRUCTION,
-                    "stream": False
-                },
-                timeout=25
+                f"{url}/api/generate",
+                json={"model": model, "prompt": prompt,
+                      "system": SYSTEM_INSTRUCTION, "stream": False},
+                timeout=20
             )
             if r.status_code == 200:
                 return r.json().get("response", "").strip()
             elif r.status_code == 404:
-                return f"Model '{model}' is not pulled in Ollama. Run 'ollama run {model}' in terminal first."
-            else:
-                return f"Ollama returned error code {r.status_code}: {r.text[:100]}"
+                return f"Model '{model}' not found in Ollama. Run 'ollama run {model}' first."
+            return f"Ollama error {r.status_code}: {r.text[:100]}"
         except requests.exceptions.ConnectionError:
-            return (
-                f"Cannot connect to Ollama at {ollama_url}. "
-                "Please make sure Ollama is running, or switch provider in Settings."
-            )
+            return f"Cannot connect to Ollama at {url}. Make sure Ollama is running."
         except Exception as e:
-            return f"Ollama error: {str(e)}"
+            return f"Ollama error: {e}"
 
     def query_openai(self, prompt: str) -> str:
-        """Queries OpenAI GPT API."""
         key = config.get_openai_key()
         if not key:
-            return f"OpenAI API Key is missing, {config.USER_NAME}. Please set it in Settings."
+            return f"OpenAI API key is missing, {config.USER_NAME}. Please set it in Settings."
         try:
             r = requests.post(
                 "https://api.openai.com/v1/chat/completions",
@@ -207,16 +250,14 @@ class DYDBrain:
             )
             if r.status_code == 200:
                 return r.json()["choices"][0]["message"]["content"].strip()
-            else:
-                return f"OpenAI error {r.status_code}: {r.json().get('error', {}).get('message', r.text[:100])}"
+            return f"OpenAI error {r.status_code}: {r.json().get('error', {}).get('message', '')}"
         except Exception as e:
-            return f"OpenAI error: {str(e)}"
+            return f"OpenAI error: {e}"
 
     def query_claude(self, prompt: str) -> str:
-        """Queries Anthropic Claude API."""
         key = config.get_claude_key()
         if not key:
-            return f"Claude API Key is missing, {config.USER_NAME}. Please set it in Settings."
+            return f"Claude API key is missing, {config.USER_NAME}. Please set it in Settings."
         try:
             r = requests.post(
                 "https://api.anthropic.com/v1/messages",
@@ -235,63 +276,43 @@ class DYDBrain:
             )
             if r.status_code == 200:
                 return r.json()["content"][0]["text"].strip()
-            else:
-                return f"Claude error {r.status_code}: {r.text[:100]}"
+            return f"Claude error {r.status_code}: {r.text[:100]}"
         except Exception as e:
-            return f"Claude error: {str(e)}"
+            return f"Claude error: {e}"
 
-    def query_gemini(self, prompt: str) -> str:
-        """Queries Google Gemini API."""
-        if not self.gemini_chat:
-            success = self._init_gemini()
-            if not success:
-                return f"Gemini API key is not configured, {config.USER_NAME}. Please set it in Settings."
-
-        for attempt_model in [self.active_gemini_model] + [m for m in CANDIDATE_GEMINI_MODELS if m != self.active_gemini_model]:
-            try:
-                response = self.gemini_chat.send_message(prompt)
-                return response.text.strip()
-            except Exception as e:
-                err_str = str(e)
-                print(f"[DYD] Error with Gemini {attempt_model}: {err_str}")
-                if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
-                    return f"Google Gemini rate limit reached, {config.USER_NAME}. Please wait a moment."
-                try:
-                    alt_model = genai.GenerativeModel(
-                        model_name=attempt_model,
-                        system_instruction=SYSTEM_INSTRUCTION
-                    )
-                    self.gemini_chat = alt_model.start_chat()
-                    self.active_gemini_model = attempt_model
-                except Exception:
-                    pass
-
-        return f"Apologies {config.USER_NAME}, Gemini could not process that request right now."
+    # ── Main Entry ─────────────────────────────────────────────────────────────
 
     def process_command(self, user_text: str) -> str:
-        """Processes user voice/text: Fast local actions first, then selected AI Provider."""
-        clean_text = user_text.strip()
-        for wake in ["hey dyd", "dyd", "hey jarvis", "jarvis"]:
-            if clean_text.lower().startswith(wake):
-                clean_text = clean_text[len(wake):].strip(" ,:.-")
+        """
+        Process voice/text command:
+          1. Strip wake words
+          2. Try instant local dispatch (0-1ms)
+          3. Fall through to selected AI provider
+        """
+        clean = user_text.strip()
+
+        # Strip wake words
+        for wake in ["hey dyd", "dyd,", "hey dyd,", "dyd", "hey jarvis,", "hey jarvis", "jarvis,"  "jarvis"]:
+            if clean.lower().startswith(wake):
+                clean = clean[len(wake):].strip(" ,:.-")
                 break
 
-        if not clean_text:
+        if not clean:
             return f"Yes {config.USER_NAME}? How can DYD assist you?"
 
-        # ⚡ Step 1: Ultra-fast local dispatch (0.001s for YouTube, PC, WhatsApp, Apps)
-        fast_result = fast_local_dispatch(clean_text)
-        if fast_result:
-            return fast_result
+        # ⚡ Step 1: Instant local dispatch
+        fast = fast_local_dispatch(clean)
+        if fast is not None:
+            return fast
 
-        # 🧠 Step 2: Route to configured AI Provider
+        # 🧠 Step 2: AI Provider
         provider = config.get_ai_provider()
         with self.lock:
             if provider == "OLLAMA":
-                return self.query_ollama(clean_text)
+                return self.query_ollama(clean)
             elif provider == "OPENAI":
-                return self.query_openai(clean_text)
+                return self.query_openai(clean)
             elif provider == "CLAUDE":
-                return self.query_claude(clean_text)
-            else: # Default GEMINI
-                return self.query_gemini(clean_text)
+                return self.query_claude(clean)
+            else:
+                return self.query_gemini(clean)

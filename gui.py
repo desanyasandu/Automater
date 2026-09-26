@@ -354,11 +354,8 @@ class DYDApp(ctk.CTk):
         self.append_chat("DYD", response)
         self.update_state("SPEAKING...", "speaking")
         self.speech.speak(response)
-        
-        def reset():
-            time.sleep(1.8)
-            self.after(0, lambda: self.update_state("SYSTEM READY", "normal"))
-        threading.Thread(target=reset, daemon=True).start()
+        # Reset state label after a short delay
+        self.after(2000, lambda: self.update_state("SYSTEM READY", "normal"))
 
     def toggle_voice_listen(self):
         if self.is_listening:
@@ -386,20 +383,21 @@ class DYDApp(ctk.CTk):
     def toggle_continuous_listen(self):
         self.auto_listen_active = self.auto_listen_switch.get() == 1
         if self.auto_listen_active:
-            self.append_chat("DYD", "Continuous background listening enabled. Say 'Hey DYD' followed by your command.")
+            self.append_chat("DYD", "Auto-listen enabled. Just speak anytime — no wake word needed!")
             threading.Thread(target=self._continuous_listen_loop, daemon=True).start()
         else:
-            self.append_chat("DYD", "Continuous listening disabled.")
+            self.append_chat("DYD", "Auto-listen disabled.")
 
     def _continuous_listen_loop(self):
+        """Background thread: always listening, no strict wake-word guard."""
         while self.auto_listen_active:
-            if not self.is_listening and not self.speech.is_speaking and self.cmd_queue.empty():
-                text = self.speech.listen(timeout=5, phrase_time_limit=8)
-                if text and self.auto_listen_active:
-                    clean = text.lower()
-                    if any(w in clean for w in ["hey dyd", "dyd", "hey jarvis", "jarvis", "play", "open", "check", "status"]):
-                        self.after(0, lambda t=text: self.execute_prompt(t))
-            time.sleep(0.5)
+            if self.is_listening or self.speech.is_speaking or not self.cmd_queue.empty():
+                time.sleep(0.3)
+                continue
+            text = self.speech.listen(timeout=5, phrase_time_limit=10)
+            if text and self.auto_listen_active:
+                self.after(0, lambda t=text: self.execute_prompt(t))
+            time.sleep(0.1)
 
     def open_settings_window(self):
         win = ctk.CTkToplevel(self)

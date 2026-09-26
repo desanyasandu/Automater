@@ -8,12 +8,17 @@ import subprocess
 import ctypes
 from pathlib import Path
 import psutil
-import pyautogui
-pyautogui.FAILSAFE = False
-import pyperclip
 import config
 
-CHROME_PATH = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+# ─── Constants ────────────────────────────────────────────────────────────────
+CHROME_PATHS = [
+    r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+    r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+]
+
+VK_VOLUME_MUTE = 0xAD
+VK_VOLUME_DOWN = 0xAE
+VK_VOLUME_UP   = 0xAF
 
 COMMON_WEBSITES = {
     "gemini": "https://gemini.google.com",
@@ -38,270 +43,286 @@ COMMON_WEBSITES = {
     "wikipedia": "https://www.wikipedia.org",
     "canva": "https://www.canva.com",
     "spotify": "https://open.spotify.com",
-    "linkedin": "https://www.linkedin.com"
+    "linkedin": "https://www.linkedin.com",
+    "whatsapp web": "https://web.whatsapp.com",
 }
 
-# Windows Virtual-Key Codes for Volume
-VK_VOLUME_MUTE = 0xAD
-VK_VOLUME_DOWN = 0xAE
-VK_VOLUME_UP = 0xAF
+def _get_chrome_path() -> str | None:
+    for p in CHROME_PATHS:
+        if os.path.exists(p):
+            return p
+    return None
+
+# ─── Browser / Search ─────────────────────────────────────────────────────────
 
 def open_in_browser(url: str, force_chrome: bool = True):
-    """Opens a URL in Google Chrome (if available) or default browser non-blocking."""
+    """Open URL in Chrome (if found) or default browser — fire-and-forget."""
+    chrome = _get_chrome_path()
     def _run():
-        if force_chrome and os.path.exists(CHROME_PATH):
-            subprocess.Popen([CHROME_PATH, url])
+        if force_chrome and chrome:
+            subprocess.Popen([chrome, url],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         else:
-            try:
-                if os.path.exists(CHROME_PATH):
-                    subprocess.Popen([CHROME_PATH, url])
-                else:
-                    webbrowser.open(url)
-            except Exception:
-                webbrowser.open(url)
+            webbrowser.open(url)
     threading.Thread(target=_run, daemon=True).start()
 
 def search_google(query: str, in_chrome: bool = True) -> str:
-    """Search Google for any topic or question in Chrome."""
-    clean_query = query.strip()
-    encoded = urllib.parse.quote(clean_query)
-    url = f"https://www.google.com/search?q={encoded}"
+    """Search Google for any topic in Chrome."""
+    clean = query.strip()
+    url = f"https://www.google.com/search?q={urllib.parse.quote(clean)}"
     open_in_browser(url, force_chrome=in_chrome)
-    return f"Searching '{clean_query}' on Google, {config.USER_NAME}."
+    return f"Searching '{clean}' on Google, {config.USER_NAME}."
+
+def open_chrome_and_search(query: str) -> str:
+    """Open Chrome and immediately search for query."""
+    clean = query.strip()
+    chrome = _get_chrome_path()
+    url = f"https://www.google.com/search?q={urllib.parse.quote(clean)}"
+    def _run():
+        if chrome:
+            subprocess.Popen([chrome, url],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:
+            webbrowser.open(url)
+    threading.Thread(target=_run, daemon=True).start()
+    return f"Opening Chrome and searching for '{clean}', {config.USER_NAME}."
+
+# ─── YouTube ──────────────────────────────────────────────────────────────────
 
 def play_youtube(query: str) -> str:
-    """Search and play a video or song on YouTube."""
-    clean_query = query.strip()
-    
-    def _do_play():
+    """Search and play a video/song on YouTube (instant, non-blocking)."""
+    clean = query.strip()
+    def _play():
         try:
             import pywhatkit
-            pywhatkit.playonyt(clean_query)
+            pywhatkit.playonyt(clean)
         except Exception:
-            encoded = urllib.parse.quote(clean_query)
-            url = f"https://www.youtube.com/results?search_query={encoded}"
+            url = f"https://www.youtube.com/results?search_query={urllib.parse.quote(clean)}"
             open_in_browser(url, force_chrome=True)
+    threading.Thread(target=_play, daemon=True).start()
+    return f"Playing '{clean}' on YouTube now, {config.USER_NAME}."
 
-    threading.Thread(target=_do_play, daemon=True).start()
-    return f"Playing '{clean_query}' on YouTube now."
+# ─── Volume Control ───────────────────────────────────────────────────────────
+
+def control_volume(action: str) -> str:
+    """Instantly control system volume via hardware VK codes."""
+    act = action.lower()
+    if any(k in act for k in ["up", "increase", "raise", "louder", "higher"]):
+        for _ in range(5):
+            ctypes.windll.user32.keybd_event(VK_VOLUME_UP, 0, 0, 0)
+            ctypes.windll.user32.keybd_event(VK_VOLUME_UP, 0, 2, 0)
+        return f"Volume increased, {config.USER_NAME}."
+    elif any(k in act for k in ["down", "decrease", "lower", "quieter", "reduce"]):
+        for _ in range(5):
+            ctypes.windll.user32.keybd_event(VK_VOLUME_DOWN, 0, 0, 0)
+            ctypes.windll.user32.keybd_event(VK_VOLUME_DOWN, 0, 2, 0)
+        return f"Volume decreased, {config.USER_NAME}."
+    elif any(k in act for k in ["mute", "unmute", "silent"]):
+        ctypes.windll.user32.keybd_event(VK_VOLUME_MUTE, 0, 0, 0)
+        ctypes.windll.user32.keybd_event(VK_VOLUME_MUTE, 0, 2, 0)
+        return f"Volume muted/unmuted, {config.USER_NAME}."
+    return "Unknown volume command."
+
+# ─── Screenshot ───────────────────────────────────────────────────────────────
+
+def take_screenshot() -> str:
+    """Take screenshot using Win+PrtScn and save a PNG copy."""
+    def _shot():
+        # Win + PrtScn (saves to Pictures/Screenshots natively)
+        ctypes.windll.user32.keybd_event(0x5B, 0, 0, 0)  # Win down
+        ctypes.windll.user32.keybd_event(0x2C, 0, 0, 0)  # PrtScn down
+        time.sleep(0.05)
+        ctypes.windll.user32.keybd_event(0x2C, 0, 2, 0)  # PrtScn up
+        ctypes.windll.user32.keybd_event(0x5B, 0, 2, 0)  # Win up
+        # Also save timestamped PNG
+        try:
+            from PIL import ImageGrab
+            folder = Path.home() / "Pictures" / "Screenshots"
+            folder.mkdir(parents=True, exist_ok=True)
+            fname = f"Screenshot_{time.strftime('%Y%m%d_%H%M%S')}.png"
+            ImageGrab.grab().save(str(folder / fname))
+        except Exception:
+            pass
+    threading.Thread(target=_shot, daemon=True).start()
+    return f"Screenshot captured and saved to Pictures/Screenshots, {config.USER_NAME}."
+
+# ─── Lock PC ──────────────────────────────────────────────────────────────────
+
+def lock_pc() -> str:
+    """Lock the Windows workstation immediately."""
+    threading.Thread(target=ctypes.windll.user32.LockWorkStation, daemon=True).start()
+    return f"Locking your computer now, {config.USER_NAME}."
+
+# ─── Media Controls ───────────────────────────────────────────────────────────
 
 def media_control(action: str) -> str:
-    """Pause, resume, or toggle fullscreen for media."""
+    """Toggle play/pause or fullscreen for any media."""
     act = action.lower()
     if any(k in act for k in ["pause", "stop", "resume", "play"]):
-        ctypes.windll.user32.keybd_event(0xB3, 0, 0, 0) # VK_MEDIA_PLAY_PAUSE
-        time.sleep(0.02)
+        ctypes.windll.user32.keybd_event(0xB3, 0, 0, 0)
         ctypes.windll.user32.keybd_event(0xB3, 0, 2, 0)
         return f"Toggled media playback, {config.USER_NAME}."
     elif "fullscreen" in act:
-        pyautogui.press("f")
+        # Send 'F' key for most players / YouTube
+        ctypes.windll.user32.keybd_event(0x46, 0, 0, 0)
+        ctypes.windll.user32.keybd_event(0x46, 0, 2, 0)
         return f"Toggled fullscreen, {config.USER_NAME}."
     return "Media control executed."
 
-def send_whatsapp(contact_or_number: str, message: str) -> str:
-    """
-    Automates WhatsApp Desktop directly by contact name (or number)
-    just like in the demo video.
-    """
-    contact_clean = contact_or_number.strip()
-    clean_msg = message.strip()
+# ─── WhatsApp ─────────────────────────────────────────────────────────────────
 
-    def _do_send():
-        # 1. Bring WhatsApp Desktop to front
+def send_whatsapp(contact: str, message: str) -> str:
+    """Automate WhatsApp Desktop: search contact, open chat, send message."""
+    try:
+        import pyautogui
+        import pyperclip
+        pyautogui.FAILSAFE = False
+    except ImportError:
+        return "pyautogui or pyperclip is not installed."
+
+    def _send():
         os.system("start whatsapp:")
         time.sleep(1.8)
-
-        # 2. Focus search bar (Ctrl + F)
         pyautogui.hotkey("ctrl", "f")
         time.sleep(0.4)
-
-        # Clear previous search
         pyautogui.hotkey("ctrl", "a")
         pyautogui.press("backspace")
         time.sleep(0.2)
-
-        # 3. Paste contact name via clipboard
-        pyperclip.copy(contact_clean)
+        pyperclip.copy(contact.strip())
         pyautogui.hotkey("ctrl", "v")
         time.sleep(1.2)
-
-        # 4. Select the first matched contact
         pyautogui.press("down")
         time.sleep(0.2)
         pyautogui.press("enter")
         time.sleep(0.8)
-
-        # 5. Type and send message
-        pyperclip.copy(clean_msg)
+        pyperclip.copy(message.strip())
         pyautogui.hotkey("ctrl", "v")
-        time.sleep(0.4)
+        time.sleep(0.3)
         pyautogui.press("enter")
 
-    threading.Thread(target=_do_send, daemon=True).start()
-    return f"Sending reply to {contact_clean} on WhatsApp, {config.USER_NAME}."
+    threading.Thread(target=_send, daemon=True).start()
+    return f"Sending message to {contact} on WhatsApp, {config.USER_NAME}."
+
+# ─── Open Application ─────────────────────────────────────────────────────────
 
 def open_application(app_name: str) -> str:
-    """Open desktop apps, websites, or search Google non-blocking."""
-    app_clean = app_name.lower().strip()
+    """Open any desktop app, website, or fall back to Google search."""
+    app = app_name.lower().strip()
 
-    # Browser launch
-    if app_clean in ["chrome", "google chrome", "browser"]:
-        open_in_browser("https://www.google.com", force_chrome=True)
+    # ── Browsers ──────────────────────────────────────
+    if app in ["chrome", "google chrome", "browser"]:
+        def _open_chrome():
+            chrome = _get_chrome_path()
+            if chrome:
+                subprocess.Popen([chrome], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            else:
+                webbrowser.open("https://www.google.com")
+        threading.Thread(target=_open_chrome, daemon=True).start()
         return f"Opening Google Chrome, {config.USER_NAME}."
 
-    # Known websites
-    if app_clean in COMMON_WEBSITES:
-        url = COMMON_WEBSITES[app_clean]
-        open_in_browser(url, force_chrome=True)
+    # ── Known websites ────────────────────────────────
+    if app in COMMON_WEBSITES:
+        open_in_browser(COMMON_WEBSITES[app], force_chrome=True)
         return f"Opening {app_name.title()} in Chrome, {config.USER_NAME}."
 
-    # Direct URL with domain
-    if any(app_clean.endswith(ext) for ext in [".com", ".org", ".net", ".io", ".lk", ".ai", ".co", ".app"]):
-        url = f"https://{app_clean}" if not app_clean.startswith("http") else app_clean
+    # ── Direct URL ────────────────────────────────────
+    if any(app.endswith(ext) for ext in [".com", ".org", ".net", ".io", ".lk", ".ai", ".co", ".app", ".edu"]):
+        url = f"https://{app}" if not app.startswith("http") else app
         open_in_browser(url, force_chrome=True)
-        return f"Opening {app_clean} in Chrome, {config.USER_NAME}."
+        return f"Opening {app} in Chrome, {config.USER_NAME}."
 
-    # Non-blocking Local Desktop Software
-    if app_clean in ["notepad", "note"]:
-        subprocess.Popen("notepad.exe", shell=True)
-        return f"Opening Notepad, {config.USER_NAME}."
-
-    if app_clean in ["calculator", "calc"]:
-        subprocess.Popen("calc.exe", shell=True)
-        return f"Opening Calculator, {config.USER_NAME}."
-
-    if app_clean in ["vscode", "vs code", "code", "visual studio code"]:
-        subprocess.Popen("code", shell=True)
-        return f"Opening Visual Studio Code, {config.USER_NAME}."
-
-    if app_clean in ["spotify", "music"]:
-        def _launch_spotify():
-            try:
-                os.system("start spotify:")
-            except Exception:
-                open_in_browser("https://open.spotify.com", force_chrome=True)
-        threading.Thread(target=_launch_spotify, daemon=True).start()
-        return f"Opening Spotify, {config.USER_NAME}."
-
-    if app_clean in ["whatsapp"]:
-        os.system("start whatsapp:")
-        return f"Opening WhatsApp, {config.USER_NAME}."
-
-    if app_clean in ["cmd", "command prompt"]:
-        subprocess.Popen("start cmd", shell=True)
-        return f"Opening Command Prompt, {config.USER_NAME}."
-
-    if app_clean in ["terminal", "powershell"]:
-        subprocess.Popen("start powershell", shell=True)
-        return f"Opening PowerShell, {config.USER_NAME}."
-
-    if app_clean in ["file explorer", "explorer"]:
-        subprocess.Popen("explorer.exe", shell=True)
-        return f"Opening File Explorer, {config.USER_NAME}."
-
-    if app_clean in ["settings", "windows settings"]:
-        subprocess.Popen("start ms-settings:", shell=True)
-        return f"Opening Windows Settings, {config.USER_NAME}."
-
-    if app_clean in ["task manager", "taskmgr"]:
-        subprocess.Popen("taskmgr.exe", shell=True)
-        return f"Opening Task Manager, {config.USER_NAME}."
-
-    # Safe fallback: Search on Google in Chrome instead of Windows error
-    return search_google(app_name, in_chrome=True)
-
-def close_application(app_name: str) -> str:
-    """Closes running desktop applications cleanly."""
-    app_clean = app_name.lower().strip()
-    proc_map = {
-        "chrome": ["chrome.exe"],
-        "google chrome": ["chrome.exe"],
-        "notepad": ["Notepad.exe", "notepad.exe"],
-        "calculator": ["CalculatorApp.exe", "Calculator.exe", "calc.exe"],
-        "calc": ["CalculatorApp.exe", "Calculator.exe", "calc.exe"],
-        "vscode": ["Code.exe"],
-        "vs code": ["Code.exe"],
-        "visual studio code": ["Code.exe"],
-        "spotify": ["Spotify.exe"],
-        "whatsapp": ["WhatsApp.exe"],
-        "cmd": ["cmd.exe"],
-        "powershell": ["powershell.exe"]
+    # ── Desktop apps ──────────────────────────────────
+    APP_CMDS = {
+        ("notepad", "note"): ("notepad.exe", False),
+        ("calculator", "calc"): ("calc.exe", False),
+        ("vscode", "vs code", "code", "visual studio code"): ("code", True),
+        ("cmd", "command prompt"): ("cmd.exe", True),
+        ("terminal", "powershell"): ("powershell.exe", True),
+        ("file explorer", "explorer", "this pc"): ("explorer.exe", False),
+        ("settings", "windows settings"): ("ms-settings:", True),
+        ("task manager", "taskmgr"): ("taskmgr.exe", False),
+        ("paint"): ("mspaint.exe", False),
+        ("word"): ("winword.exe", False),
+        ("excel"): ("excel.exe", False),
+        ("powerpoint"): ("powerpnt.exe", False),
+        ("snipping tool", "snip"): ("snippingtool.exe", False),
+        ("clock"): ("ms-clock:", True),
     }
 
-    targets = proc_map.get(app_clean, [f"{app_clean}.exe"])
-    def _do_kill():
-        for t in targets:
-            os.system(f"taskkill /f /im {t} /t >nul 2>&1")
-    threading.Thread(target=_do_kill, daemon=True).start()
-    return f"Closed {app_name}, {config.USER_NAME}."
+    for keys, (cmd, use_shell) in APP_CMDS.items():
+        if isinstance(keys, str):
+            keys = (keys,)
+        if app in keys:
+            def _launch(c=cmd, s=use_shell):
+                if s:
+                    os.system(f"start {c}")
+                else:
+                    subprocess.Popen(c, shell=True,
+                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            threading.Thread(target=_launch, daemon=True).start()
+            return f"Opening {app_name.title()}, {config.USER_NAME}."
 
-def take_screenshot() -> str:
-    """Takes a screenshot and saves it to user's Pictures/Screenshots folder."""
-    def _do_shot():
-        # 1. Native Windows Win + PrtScn hardware event
-        ctypes.windll.user32.keybd_event(0x5B, 0, 0, 0) # Win down
-        ctypes.windll.user32.keybd_event(0x2C, 0, 0, 0) # PrtScn down
-        time.sleep(0.05)
-        ctypes.windll.user32.keybd_event(0x2C, 0, 2, 0) # PrtScn up
-        ctypes.windll.user32.keybd_event(0x5B, 0, 2, 0) # Win up
-        
-        # 2. Also save timestamped PNG file
-        try:
-            from PIL import ImageGrab
-            user_pictures = Path.home() / "Pictures" / "Screenshots"
-            user_pictures.mkdir(parents=True, exist_ok=True)
-            filename = f"Screenshot_{time.strftime('%Y%m%d_%H%M%S')}.png"
-            filepath = user_pictures / filename
-            img = ImageGrab.grab()
-            img.save(str(filepath))
-        except Exception:
-            pass
+    if app in ["spotify", "music"]:
+        def _spotify():
+            os.system("start spotify:")
+        threading.Thread(target=_spotify, daemon=True).start()
+        return f"Opening Spotify, {config.USER_NAME}."
 
-    threading.Thread(target=_do_shot, daemon=True).start()
-    return f"Screenshot captured and saved to Pictures/Screenshots, {config.USER_NAME}."
+    if app in ["whatsapp", "whats app"]:
+        threading.Thread(target=lambda: os.system("start whatsapp:"), daemon=True).start()
+        return f"Opening WhatsApp, {config.USER_NAME}."
 
-def lock_pc() -> str:
-    """Locks the Windows computer."""
-    def _do_lock():
-        time.sleep(0.3)
-        ctypes.windll.user32.LockWorkStation()
-    threading.Thread(target=_do_lock, daemon=True).start()
-    return f"Locking computer workstation now, {config.USER_NAME}."
+    # ── Fallback: Google search ────────────────────────
+    return search_google(app_name, in_chrome=True)
 
-def control_volume(action: str) -> str:
-    """Control system volume: 'up', 'down', 'mute' via hardware keystrokes."""
-    act = action.lower()
-    if "up" in act or "increase" in act or "raise" in act or "louder" in act:
-        for _ in range(6):
-            ctypes.windll.user32.keybd_event(VK_VOLUME_UP, 0, 0, 0)
-            time.sleep(0.01)
-            ctypes.windll.user32.keybd_event(VK_VOLUME_UP, 0, 2, 0)
-            time.sleep(0.01)
-        return "Increased system volume."
-    elif "down" in act or "decrease" in act or "lower" in act or "quieter" in act:
-        for _ in range(6):
-            ctypes.windll.user32.keybd_event(VK_VOLUME_DOWN, 0, 0, 0)
-            time.sleep(0.01)
-            ctypes.windll.user32.keybd_event(VK_VOLUME_DOWN, 0, 2, 0)
-            time.sleep(0.01)
-        return "Decreased system volume."
-    elif "mute" in act or "unmute" in act:
-        ctypes.windll.user32.keybd_event(VK_VOLUME_MUTE, 0, 0, 0)
-        time.sleep(0.01)
-        ctypes.windll.user32.keybd_event(VK_VOLUME_MUTE, 0, 2, 0)
-        return "Toggled system mute."
-    return "Unknown volume command."
+# ─── Close Application ────────────────────────────────────────────────────────
+
+def close_application(app_name: str) -> str:
+    """Close any running application by name."""
+    app = app_name.lower().strip()
+
+    PROC_MAP = {
+        "chrome":               ["chrome.exe"],
+        "google chrome":        ["chrome.exe"],
+        "notepad":              ["notepad.exe", "Notepad.exe"],
+        "calculator":           ["CalculatorApp.exe", "Calculator.exe", "calc.exe"],
+        "calc":                 ["CalculatorApp.exe", "Calculator.exe", "calc.exe"],
+        "vscode":               ["Code.exe"],
+        "vs code":              ["Code.exe"],
+        "visual studio code":   ["Code.exe"],
+        "spotify":              ["Spotify.exe"],
+        "whatsapp":             ["WhatsApp.exe"],
+        "cmd":                  ["cmd.exe"],
+        "command prompt":       ["cmd.exe"],
+        "powershell":           ["powershell.exe"],
+        "terminal":             ["WindowsTerminal.exe"],
+        "explorer":             ["explorer.exe"],
+        "paint":                ["mspaint.exe"],
+        "word":                 ["WINWORD.EXE"],
+        "excel":                ["EXCEL.EXE"],
+        "powerpoint":           ["POWERPNT.EXE"],
+        "task manager":         ["Taskmgr.exe"],
+        "vlc":                  ["vlc.exe"],
+        "discord":              ["Discord.exe"],
+        "telegram":             ["Telegram.exe"],
+    }
+
+    targets = PROC_MAP.get(app, [f"{app}.exe"])
+    def _kill():
+        for proc in targets:
+            os.system(f'taskkill /f /im "{proc}" /t >nul 2>&1')
+    threading.Thread(target=_kill, daemon=True).start()
+    return f"Closing {app_name.title()}, {config.USER_NAME}."
+
+# ─── System Status ────────────────────────────────────────────────────────────
 
 def get_system_status() -> str:
-    """Get PC battery, CPU, and RAM metrics."""
-    cpu = psutil.cpu_percent(interval=0.5)
+    """Return CPU, RAM, and battery info."""
+    cpu = psutil.cpu_percent(interval=0.3)
     ram = psutil.virtual_memory().percent
-    
-    battery_info = "No battery detected (Desktop PC)"
     battery = psutil.sensors_battery()
     if battery:
-        percent = battery.percent
-        plugged = "Plugged in" if battery.power_plugged else "Running on battery"
-        battery_info = f"{percent}% ({plugged})"
-
-    return f"System Status: CPU usage is {cpu}%, RAM usage is {ram}%, Battery is {battery_info}."
+        batt = f"{battery.percent:.0f}% ({'Charging' if battery.power_plugged else 'On Battery'})"
+    else:
+        batt = "No battery (Desktop PC)"
+    return f"CPU {cpu}% | RAM {ram}% | Battery: {batt}."
