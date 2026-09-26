@@ -41,8 +41,13 @@ COMMON_WEBSITES = {
     "linkedin": "https://www.linkedin.com"
 }
 
+# Windows Virtual-Key Codes for Volume
+VK_VOLUME_MUTE = 0xAD
+VK_VOLUME_DOWN = 0xAE
+VK_VOLUME_UP = 0xAF
+
 def open_in_browser(url: str, force_chrome: bool = True):
-    """Opens a URL in Google Chrome (if available) or default browser."""
+    """Opens a URL in Google Chrome (if available) or default browser non-blocking."""
     def _run():
         if force_chrome and os.path.exists(CHROME_PATH):
             subprocess.Popen([CHROME_PATH, url])
@@ -84,7 +89,9 @@ def media_control(action: str) -> str:
     """Pause, resume, or toggle fullscreen for media."""
     act = action.lower()
     if any(k in act for k in ["pause", "stop", "resume", "play"]):
-        pyautogui.press("playpause")
+        ctypes.windll.user32.keybd_event(0xB3, 0, 0, 0) # VK_MEDIA_PLAY_PAUSE
+        time.sleep(0.02)
+        ctypes.windll.user32.keybd_event(0xB3, 0, 2, 0)
         return f"Toggled media playback, {config.USER_NAME}."
     elif "fullscreen" in act:
         pyautogui.press("f")
@@ -134,7 +141,7 @@ def send_whatsapp(contact_or_number: str, message: str) -> str:
     return f"Sending reply to {contact_clean} on WhatsApp, {config.USER_NAME}."
 
 def open_application(app_name: str) -> str:
-    """Open desktop apps, websites, or search Google intelligently."""
+    """Open desktop apps, websites, or search Google non-blocking."""
     app_clean = app_name.lower().strip()
 
     # Browser launch
@@ -154,85 +161,134 @@ def open_application(app_name: str) -> str:
         open_in_browser(url, force_chrome=True)
         return f"Opening {app_clean} in Chrome, {config.USER_NAME}."
 
-    # Local desktop software
-    local_apps = {
-        "whatsapp": "whatsapp:",
-        "notepad": "notepad.exe",
-        "calculator": "calc.exe",
-        "calc": "calc.exe",
-        "vscode": "code",
-        "vs code": "code",
-        "visual studio code": "code",
-        "cmd": "start cmd",
-        "command prompt": "start cmd",
-        "terminal": "start wt",
-        "powershell": "start powershell",
-        "file explorer": "explorer.exe",
-        "explorer": "explorer.exe",
-        "settings": "start ms-settings:",
-        "spotify": "start spotify:",
-        "task manager": "taskmgr.exe"
-    }
+    # Non-blocking Local Desktop Software
+    if app_clean in ["notepad", "note"]:
+        subprocess.Popen("notepad.exe", shell=True)
+        return f"Opening Notepad, {config.USER_NAME}."
 
-    if app_clean in local_apps:
-        target = local_apps[app_clean]
-        os.system(target)
-        return f"Opening {app_name}, {config.USER_NAME}."
+    if app_clean in ["calculator", "calc"]:
+        subprocess.Popen("calc.exe", shell=True)
+        return f"Opening Calculator, {config.USER_NAME}."
 
-    # Safe fallback: Search on Google in Chrome instead of Windows 'file not found' error
+    if app_clean in ["vscode", "vs code", "code", "visual studio code"]:
+        subprocess.Popen("code", shell=True)
+        return f"Opening Visual Studio Code, {config.USER_NAME}."
+
+    if app_clean in ["spotify", "music"]:
+        def _launch_spotify():
+            try:
+                os.system("start spotify:")
+            except Exception:
+                open_in_browser("https://open.spotify.com", force_chrome=True)
+        threading.Thread(target=_launch_spotify, daemon=True).start()
+        return f"Opening Spotify, {config.USER_NAME}."
+
+    if app_clean in ["whatsapp"]:
+        os.system("start whatsapp:")
+        return f"Opening WhatsApp, {config.USER_NAME}."
+
+    if app_clean in ["cmd", "command prompt"]:
+        subprocess.Popen("start cmd", shell=True)
+        return f"Opening Command Prompt, {config.USER_NAME}."
+
+    if app_clean in ["terminal", "powershell"]:
+        subprocess.Popen("start powershell", shell=True)
+        return f"Opening PowerShell, {config.USER_NAME}."
+
+    if app_clean in ["file explorer", "explorer"]:
+        subprocess.Popen("explorer.exe", shell=True)
+        return f"Opening File Explorer, {config.USER_NAME}."
+
+    if app_clean in ["settings", "windows settings"]:
+        subprocess.Popen("start ms-settings:", shell=True)
+        return f"Opening Windows Settings, {config.USER_NAME}."
+
+    if app_clean in ["task manager", "taskmgr"]:
+        subprocess.Popen("taskmgr.exe", shell=True)
+        return f"Opening Task Manager, {config.USER_NAME}."
+
+    # Safe fallback: Search on Google in Chrome instead of Windows error
     return search_google(app_name, in_chrome=True)
 
 def close_application(app_name: str) -> str:
-    """Closes a running desktop application."""
+    """Closes running desktop applications cleanly."""
     app_clean = app_name.lower().strip()
     proc_map = {
-        "chrome": "chrome.exe",
-        "google chrome": "chrome.exe",
-        "notepad": "notepad.exe",
-        "calculator": "CalculatorApp.exe",
-        "calc": "CalculatorApp.exe",
-        "vscode": "Code.exe",
-        "vs code": "Code.exe",
-        "spotify": "Spotify.exe",
-        "whatsapp": "WhatsApp.exe",
-        "cmd": "cmd.exe"
+        "chrome": ["chrome.exe"],
+        "google chrome": ["chrome.exe"],
+        "notepad": ["Notepad.exe", "notepad.exe"],
+        "calculator": ["CalculatorApp.exe", "Calculator.exe", "calc.exe"],
+        "calc": ["CalculatorApp.exe", "Calculator.exe", "calc.exe"],
+        "vscode": ["Code.exe"],
+        "vs code": ["Code.exe"],
+        "visual studio code": ["Code.exe"],
+        "spotify": ["Spotify.exe"],
+        "whatsapp": ["WhatsApp.exe"],
+        "cmd": ["cmd.exe"],
+        "powershell": ["powershell.exe"]
     }
-    target_exe = proc_map.get(app_clean, f"{app_clean}.exe")
-    os.system(f"taskkill /f /im {target_exe} >nul 2>&1")
+
+    targets = proc_map.get(app_clean, [f"{app_clean}.exe"])
+    def _do_kill():
+        for t in targets:
+            os.system(f"taskkill /f /im {t} /t >nul 2>&1")
+    threading.Thread(target=_do_kill, daemon=True).start()
     return f"Closed {app_name}, {config.USER_NAME}."
 
 def take_screenshot() -> str:
-    """Takes a screenshot and saves it to user's Pictures folder."""
-    try:
-        user_pictures = Path.home() / "Pictures" / "Screenshots"
-        user_pictures.mkdir(parents=True, exist_ok=True)
-        filename = f"Screenshot_{time.strftime('%Y%m%d_%H%M%S')}.png"
-        filepath = user_pictures / filename
-        from PIL import ImageGrab
-        img = ImageGrab.grab(all_screens=True)
-        img.save(str(filepath))
-        return f"Screenshot captured and saved to Pictures/Screenshots, {config.USER_NAME}."
-    except Exception as e:
-        return f"Could not capture screenshot: {str(e)}"
+    """Takes a screenshot and saves it to user's Pictures/Screenshots folder."""
+    def _do_shot():
+        # 1. Native Windows Win + PrtScn hardware event
+        ctypes.windll.user32.keybd_event(0x5B, 0, 0, 0) # Win down
+        ctypes.windll.user32.keybd_event(0x2C, 0, 0, 0) # PrtScn down
+        time.sleep(0.05)
+        ctypes.windll.user32.keybd_event(0x2C, 0, 2, 0) # PrtScn up
+        ctypes.windll.user32.keybd_event(0x5B, 0, 2, 0) # Win up
+        
+        # 2. Also save timestamped PNG file
+        try:
+            from PIL import ImageGrab
+            user_pictures = Path.home() / "Pictures" / "Screenshots"
+            user_pictures.mkdir(parents=True, exist_ok=True)
+            filename = f"Screenshot_{time.strftime('%Y%m%d_%H%M%S')}.png"
+            filepath = user_pictures / filename
+            img = ImageGrab.grab()
+            img.save(str(filepath))
+        except Exception:
+            pass
+
+    threading.Thread(target=_do_shot, daemon=True).start()
+    return f"Screenshot captured and saved to Pictures/Screenshots, {config.USER_NAME}."
 
 def lock_pc() -> str:
     """Locks the Windows computer."""
-    ctypes.windll.user32.LockWorkStation()
-    return f"Locking workstation now, {config.USER_NAME}."
+    def _do_lock():
+        time.sleep(0.3)
+        ctypes.windll.user32.LockWorkStation()
+    threading.Thread(target=_do_lock, daemon=True).start()
+    return f"Locking computer workstation now, {config.USER_NAME}."
 
 def control_volume(action: str) -> str:
-    """Control system volume: 'up', 'down', 'mute'."""
-    action = action.lower()
-    if "up" in action:
-        for _ in range(5):
-            pyautogui.press("volumeup")
+    """Control system volume: 'up', 'down', 'mute' via hardware keystrokes."""
+    act = action.lower()
+    if "up" in act or "increase" in act or "raise" in act or "louder" in act:
+        for _ in range(6):
+            ctypes.windll.user32.keybd_event(VK_VOLUME_UP, 0, 0, 0)
+            time.sleep(0.01)
+            ctypes.windll.user32.keybd_event(VK_VOLUME_UP, 0, 2, 0)
+            time.sleep(0.01)
         return "Increased system volume."
-    elif "down" in action:
-        for _ in range(5):
-            pyautogui.press("volumedown")
+    elif "down" in act or "decrease" in act or "lower" in act or "quieter" in act:
+        for _ in range(6):
+            ctypes.windll.user32.keybd_event(VK_VOLUME_DOWN, 0, 0, 0)
+            time.sleep(0.01)
+            ctypes.windll.user32.keybd_event(VK_VOLUME_DOWN, 0, 2, 0)
+            time.sleep(0.01)
         return "Decreased system volume."
-    elif "mute" in action:
-        pyautogui.press("volumemute")
+    elif "mute" in act or "unmute" in act:
+        ctypes.windll.user32.keybd_event(VK_VOLUME_MUTE, 0, 0, 0)
+        time.sleep(0.01)
+        ctypes.windll.user32.keybd_event(VK_VOLUME_MUTE, 0, 2, 0)
         return "Toggled system mute."
     return "Unknown volume command."
 
