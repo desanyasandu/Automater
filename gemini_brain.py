@@ -48,9 +48,9 @@ def fast_local_dispatch(text: str) -> str | None:
         return actions.control_volume("up")
     if "volume down" in t or "decrease volume" in t or "lower volume" in t or "turn down the volume" in t:
         return actions.control_volume("down")
-    if ("mute" in t and "unmute" not in t) or t == "silence":
+    if re.search(r"\bmute\b", t) or t == "silence":
         return actions.control_volume("mute")
-    if "unmute" in t:
+    if re.search(r"\bunmute\b", t):
         return actions.control_volume("mute")
 
     # ── Screenshot ────────────────────────────────────────────────────────────
@@ -68,8 +68,7 @@ def fast_local_dispatch(text: str) -> str | None:
         return f"{config.USER_NAME}, {actions.get_system_status()}"
 
     # ── Media Controls ────────────────────────────────────────────────────────
-    if any(k in t for k in ["pause video", "pause music", "pause playback", "pause",
-                              "resume video", "resume music", "resume playback"]):
+    if re.search(r"\b(?:pause|resume)\b", t):
         return actions.media_control(t)
     if "fullscreen" in t or "full screen" in t:
         return actions.media_control("fullscreen")
