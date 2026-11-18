@@ -72,6 +72,7 @@ class SettingsDialog(ctk.CTkToplevel):
         self.title("Settings")
         self.configure(fg_color=theme.BG)
         theme.apply_window_icon(self)
+        theme.apply_dark_title_bar(self)
         center_window(self, 620, 640, over=parent)
         self.minsize(560, 560)
         self.transient(parent)

@@ -16,6 +16,28 @@ def apply_window_icon(win):
         win.after(250, lambda: win.winfo_exists() and win.iconbitmap(str(ICON_ICO)))
 
 
+def apply_dark_title_bar(win):
+    """Ask Windows 10/11 to draw a dark title bar (dialogs otherwise get a white one)."""
+    import sys
+    if sys.platform != "win32":
+        return
+    import ctypes
+
+    def apply():
+        if not win.winfo_exists():
+            return
+        try:
+            hwnd = ctypes.windll.user32.GetParent(win.winfo_id())
+            value = ctypes.c_int(1)
+            for attr in (20, 19):  # DWMWA_USE_IMMERSIVE_DARK_MODE (newer builds, then older)
+                if ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                        hwnd, attr, ctypes.byref(value), ctypes.sizeof(value)) == 0:
+                    break
+        except Exception:
+            pass
+    win.after(50, apply)
+
+
 # ─── Colors ───────────────────────────────────────────────────────────────────
 BG          = "#0A0C10"   # window background
 SURFACE     = "#11141A"   # cards and panels
