@@ -26,6 +26,7 @@ class DYDApp(ctk.CTk):
         center_window(self, 1120, 740)
         self.minsize(920, 620)
         self.configure(fg_color=theme.BG)
+        theme.apply_window_icon(self)
 
         # Initialize engines
         self.brain = DYDBrain()

@@ -3,6 +3,18 @@
 Every widget pulls its look from here so the whole app stays consistent.
 """
 import tkinter.font as tkfont
+from pathlib import Path
+
+ASSETS = Path(__file__).resolve().parent.parent / "assets"
+ICON_ICO = ASSETS / "icon.ico"
+ICON_PNG = ASSETS / "icon.png"
+
+
+def apply_window_icon(win):
+    """Set the app icon on a CTk window (CTk replaces icons set before ~200 ms)."""
+    if ICON_ICO.exists():
+        win.after(250, lambda: win.winfo_exists() and win.iconbitmap(str(ICON_ICO)))
+
 
 # ─── Colors ───────────────────────────────────────────────────────────────────
 BG          = "#0A0C10"   # window background
