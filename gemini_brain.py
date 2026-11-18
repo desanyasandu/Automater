@@ -25,6 +25,10 @@ def redact_secrets(text: str) -> str:
             text = text.replace(key, "[hidden]")
     return KEY_PATTERN.sub("[hidden]", text)
 
+def invalid_key_message(provider: str) -> str:
+    return (f"Your {provider} API key was rejected, {config.USER_NAME}. "
+            "Please add your own valid key in Settings.")
+
 # ─── Fast local dispatcher (0-1ms, no API call) ───────────────────────────────
 
 def fast_local_dispatch(text: str) -> str | None:
@@ -207,6 +211,8 @@ class DYDBrain:
             return reply
         except Exception as e:
             err = str(e)
+            if "API_KEY_INVALID" in err or "PERMISSION_DENIED" in err:
+                return invalid_key_message("Gemini")
             if "429" in err or "RESOURCE_EXHAUSTED" in err:
                 return f"Gemini rate limit reached. Please wait a moment, {config.USER_NAME}."
             self._genai_client = None
@@ -252,6 +258,8 @@ class DYDBrain:
             )
             if r.status_code == 200:
                 return r.json()["choices"][0]["message"]["content"].strip()
+            if r.status_code in (401, 403):
+                return invalid_key_message("OpenAI")
             try:
                 detail = r.json().get("error", {}).get("message", "")
             except ValueError:
@@ -282,6 +290,8 @@ class DYDBrain:
             )
             if r.status_code == 200:
                 return r.json()["content"][0]["text"].strip()
+            if r.status_code in (401, 403):
+                return invalid_key_message("Claude")
             return f"Claude error {r.status_code}: {r.text[:100]}"
         except Exception as e:
             return f"Claude error: {e}"
