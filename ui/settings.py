@@ -1,5 +1,6 @@
 """Tabbed settings dialog: AI provider, API keys, voice and contacts."""
 import threading
+import webbrowser
 import customtkinter as ctk
 import speech_recognition as sr
 
@@ -30,13 +31,33 @@ def _entry(parent, value="", placeholder="", secret=False):
     return e
 
 
-def _field(parent, label, value="", placeholder="", secret=False, help_text=None):
+def _field(parent, label, value="", placeholder="", secret=False, help_text=None, link=None):
     box = ctk.CTkFrame(parent, fg_color="transparent")
     box.pack(fill="x", pady=(0, theme.SPACE_MD))
-    ctk.CTkLabel(box, text=label, font=theme.font(12, "bold"), text_color=theme.TEXT,
-                 anchor="w", height=18).pack(fill="x", pady=(0, 6))
-    entry = _entry(box, value, placeholder, secret)
-    entry.pack(fill="x")
+    top = ctk.CTkFrame(box, fg_color="transparent")
+    top.pack(fill="x", pady=(0, 6))
+    ctk.CTkLabel(top, text=label, font=theme.font(12, "bold"), text_color=theme.TEXT,
+                 anchor="w", height=18).pack(side="left")
+    if link:
+        get_key = ctk.CTkLabel(top, text="Get a key ↗", font=theme.font(12), text_color=theme.ACCENT,
+                               height=18, cursor="hand2")
+        get_key.pack(side="right")
+        get_key.bind("<Button-1>", lambda _e: webbrowser.open(link))
+
+    row = ctk.CTkFrame(box, fg_color="transparent")
+    row.pack(fill="x")
+    entry = _entry(row, value, placeholder, secret)
+    entry.pack(side="left", fill="x", expand=True)
+    if secret:
+        def toggle():
+            hidden = entry.cget("show") != ""
+            entry.configure(show="" if hidden else "•")
+            eye.configure(text=icons.HIDE if hidden else icons.VIEW)
+        eye = ctk.CTkButton(row, text=icons.VIEW, font=theme.font(14, kind="icons"), width=38, height=38,
+                            corner_radius=theme.RADIUS_SM, fg_color=theme.SURFACE_2,
+                            hover_color=theme.SURFACE_3, border_width=1, border_color=theme.BORDER,
+                            text_color=theme.TEXT_MUTED, command=toggle)
+        eye.pack(side="right", padx=(6, 0))
     if help_text:
         ctk.CTkLabel(box, text=help_text, font=theme.font(11), text_color=theme.TEXT_FAINT,
                      anchor="w", height=16).pack(fill="x", pady=(4, 0))
@@ -164,10 +185,11 @@ class SettingsDialog(ctk.CTkToplevel):
                      font=theme.font(12), text_color=theme.TEXT, anchor="w").pack(side="left", pady=10)
 
         self.gemini_key, _ = _field(page, "Gemini API key", config.get_api_key(), "Paste your Gemini key",
-                                    secret=True)
-        self.openai_key, _ = _field(page, "OpenAI API key", config.get_openai_key(), "sk-…", secret=True)
+                                    secret=True, link="https://aistudio.google.com/apikey")
+        self.openai_key, _ = _field(page, "OpenAI API key", config.get_openai_key(), "sk-…", secret=True,
+                                    link="https://platform.openai.com/api-keys")
         self.claude_key, _ = _field(page, "Anthropic API key", config.get_claude_key(), "sk-ant-…",
-                                    secret=True)
+                                    secret=True, link="https://console.anthropic.com/settings/keys")
 
     def _build_voice(self, tab):
         page = self._page(tab)
