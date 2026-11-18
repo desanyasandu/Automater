@@ -246,7 +246,11 @@ class DYDBrain:
             )
             if r.status_code == 200:
                 return r.json()["choices"][0]["message"]["content"].strip()
-            return f"OpenAI error {r.status_code}: {r.json().get('error', {}).get('message', '')}"
+            try:
+                detail = r.json().get("error", {}).get("message", "")
+            except ValueError:
+                detail = r.text[:100]
+            return f"OpenAI error {r.status_code}: {detail}"
         except Exception as e:
             return f"OpenAI error: {e}"
 
