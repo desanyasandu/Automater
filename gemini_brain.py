@@ -14,6 +14,7 @@ SYSTEM_INSTRUCTION = (
 )
 
 MAX_HISTORY_MESSAGES = 6
+MAX_INPUT_CHARS = 2000
 
 # ─── Secret redaction ─────────────────────────────────────────────────────────
 KEY_PATTERN = re.compile(r"(sk-[A-Za-z0-9_-]{8,}|AIza[0-9A-Za-z_-]{20,}|AQ\.[0-9A-Za-z_.-]{20,})")
@@ -305,7 +306,8 @@ class DYDBrain:
           2. Try instant local dispatch (0-1ms)
           3. Fall through to selected AI provider
         """
-        clean = user_text.strip()
+        # Cap input size so a huge paste can't run up API costs or stall the regex dispatcher
+        clean = user_text.strip()[:MAX_INPUT_CHARS]
 
         # Strip wake words
         for wake in ["hey dyd", "dyd,", "hey dyd,", "dyd", "hey jarvis,", "hey jarvis", "jarvis,", "jarvis"]:
