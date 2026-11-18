@@ -17,6 +17,7 @@ class ChatView(ctk.CTkScrollableFrame):
         self._labels: list[ctk.CTkLabel] = []
         self._wrap = 480
         self._typing = None
+        self._empty = None
         self.bind("<Configure>", self._on_resize)
 
     # ── Public API ─────────────────────────────────────────────────────────────
@@ -24,6 +25,7 @@ class ChatView(ctk.CTkScrollableFrame):
     def add_message(self, sender: str, text: str):
         """sender is 'user' or 'assistant'."""
         is_user = sender == "user"
+        self._hide_empty()
         if not is_user:
             self.hide_typing()
         row = ctk.CTkFrame(self, fg_color="transparent")
@@ -51,6 +53,31 @@ class ChatView(ctk.CTkScrollableFrame):
         self._labels.append(label)
         self.scroll_to_bottom()
         return row
+
+    def show_empty_state(self, title: str, subtitle: str, suggestions: list[str], on_pick):
+        """Welcome screen with clickable example commands, shown when there are no messages."""
+        self._hide_empty()
+        box = ctk.CTkFrame(self, fg_color="transparent")
+        box.pack(fill="x", pady=(90, 0))
+        ctk.CTkLabel(box, text=title, font=theme.font(24, "bold", "display"),
+                     text_color=theme.TEXT).pack()
+        ctk.CTkLabel(box, text=subtitle, font=theme.font(13), text_color=theme.TEXT_MUTED).pack(pady=(6, 24))
+        grid = ctk.CTkFrame(box, fg_color="transparent")
+        grid.pack()
+        for i, text in enumerate(suggestions):
+            chip = ctk.CTkButton(
+                grid, text=text, font=theme.font(12), height=40, width=240, corner_radius=theme.RADIUS_MD,
+                fg_color=theme.SURFACE_2, hover_color=theme.SURFACE_3, border_width=1,
+                border_color=theme.BORDER_SOFT, text_color=theme.TEXT, anchor="w",
+                command=lambda t=text: on_pick(t),
+            )
+            chip.grid(row=i // 2, column=i % 2, padx=5, pady=5)
+        self._empty = box
+
+    def _hide_empty(self):
+        if self._empty is not None and self._empty.winfo_exists():
+            self._empty.destroy()
+        self._empty = None
 
     def show_typing(self):
         """Animated three-dot bubble shown while the assistant is thinking."""
@@ -84,6 +111,7 @@ class ChatView(ctk.CTkScrollableFrame):
 
     def clear(self):
         self.hide_typing()
+        self._empty = None
         for child in self.winfo_children():
             child.destroy()
         self._labels.clear()

@@ -95,7 +95,18 @@ class DYDApp(ctk.CTk):
         self.chat = ChatView(panel, assistant_name=config.ASSISTANT_NAME)
         self.chat.pack(fill="both", expand=True, padx=2)
 
-        self.append_chat("DYD", f"Hi {config.USER_NAME}, I'm ready. Speak or type a command to get started.")
+        self._show_welcome()
+
+    def _show_welcome(self):
+        hour = time.localtime().tm_hour
+        part = "morning" if hour < 12 else "afternoon" if hour < 18 else "evening"
+        self.chat.show_empty_state(
+            f"Good {part}, {config.USER_NAME}",
+            "Speak or type a command. Here are a few ideas:",
+            ["Check the PC status", "Play lo-fi beats on YouTube",
+             "Search for the weather today", "Open notepad"],
+            on_pick=self.execute_prompt,
+        )
 
     def _check_initial_keys(self):
         provider = config.get_ai_provider()
@@ -109,6 +120,7 @@ class DYDApp(ctk.CTk):
 
     def clear_chat(self):
         self.chat.clear()
+        self._show_welcome()
         self.toast.show("Conversation cleared", "info")
 
     def update_state(self, state: str):
