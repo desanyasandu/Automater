@@ -188,7 +188,7 @@ def send_whatsapp(contact: str, message: str) -> str:
     try:
         import pyautogui
         import pyperclip
-        pyautogui.FAILSAFE = False
+        pyautogui.FAILSAFE = True  # move mouse to a screen corner to abort automation
     except ImportError:
         return "pyautogui or pyperclip is not installed."
 
