@@ -6,7 +6,12 @@ else goes to the AI provider you choose: **Google Gemini, OpenAI, Anthropic Clau
 
 > Platform: **Windows 10/11 only** (uses Windows APIs for volume, app launching and WhatsApp Desktop).
 
-<!-- Add a screenshot or GIF of the app here, e.g. ![DYD screenshot](docs/screenshot.png) -->
+![DYD main window](docs/screenshot-main.png)
+
+<p align="center">
+  <img src="docs/screenshot-welcome.png" width="49%" alt="Welcome screen with suggested commands">
+  <img src="docs/screenshot-settings.png" width="40%" alt="Settings dialog">
+</p>
 
 ## Features
 
