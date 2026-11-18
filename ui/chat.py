@@ -10,7 +10,7 @@ BUBBLE_WIDTH_RATIO = 0.72
 class ChatView(ctk.CTkScrollableFrame):
     def __init__(self, parent, assistant_name: str = "DYD", user_name: str = "You", **kw):
         super().__init__(parent, fg_color=theme.SURFACE, corner_radius=0,
-                         scrollbar_button_color=theme.SURFACE_2,
+                         scrollbar_button_color=theme.SURFACE,
                          scrollbar_button_hover_color=theme.SURFACE_3, **kw)
         self.assistant_name = assistant_name
         self.user_name = user_name

@@ -103,7 +103,8 @@ class SettingsDialog(ctk.CTkToplevel):
         self._build_contacts(tabs.tab("Contacts"))
 
     def _page(self, tab):
-        page = ctk.CTkScrollableFrame(tab, fg_color="transparent")
+        page = ctk.CTkScrollableFrame(tab, fg_color="transparent", scrollbar_button_color=theme.SURFACE,
+                                      scrollbar_button_hover_color=theme.SURFACE_3)
         page.pack(fill="both", expand=True, padx=theme.SPACE_SM, pady=theme.SPACE_SM)
         return page
 
