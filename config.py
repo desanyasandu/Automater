@@ -58,6 +58,9 @@ def save_api_key(new_key: str):
 def get_gemini_model() -> str:
     return get_setting("GEMINI_MODEL", "gemini-2.5-flash")
 
+def save_gemini_model(model: str):
+    save_setting("GEMINI_MODEL", model)
+
 def get_openai_key() -> str:
     return get_setting("OPENAI_API_KEY", "")
 
@@ -67,6 +70,9 @@ def save_openai_key(key: str):
 def get_openai_model() -> str:
     return get_setting("OPENAI_MODEL", "gpt-4o-mini")
 
+def save_openai_model(model: str):
+    save_setting("OPENAI_MODEL", model)
+
 def get_claude_key() -> str:
     return get_setting("CLAUDE_API_KEY", "")
 
@@ -75,6 +81,9 @@ def save_claude_key(key: str):
 
 def get_claude_model() -> str:
     return get_setting("CLAUDE_MODEL", "claude-haiku-5-5")
+
+def save_claude_model(model: str):
+    save_setting("CLAUDE_MODEL", model)
 
 DEFAULT_OLLAMA_URL = "http://localhost:11434"
 
@@ -104,3 +113,15 @@ def save_whatsapp_contact(name: str, phone: str):
     key = name.strip().upper().replace(" ", "_")
     clean_phone = phone.replace("+", "").replace(" ", "").replace("-", "").strip()
     save_setting(key, clean_phone)
+
+# Display helpers for the UI
+PROVIDER_NAMES = {"GEMINI": "Gemini", "OPENAI": "OpenAI", "CLAUDE": "Claude", "OLLAMA": "Ollama"}
+
+def get_active_model(provider: str | None = None) -> str:
+    provider = (provider or get_ai_provider()).upper()
+    return {
+        "GEMINI": get_gemini_model,
+        "OPENAI": get_openai_model,
+        "CLAUDE": get_claude_model,
+        "OLLAMA": get_ollama_model,
+    }.get(provider, get_gemini_model)()
