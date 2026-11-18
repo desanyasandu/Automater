@@ -20,6 +20,9 @@ CHROME_PATHS = [
 # Only letters, digits, spaces, dots, dashes and underscores may reach taskkill
 SAFE_PROCESS_NAME = re.compile(r"[a-z0-9 ._-]{1,64}")
 
+# Plain domain names only (e.g. "docs.python.org") - no paths, ports or other schemes
+SAFE_HOSTNAME = re.compile(r"(?:[a-z0-9-]+\.)+[a-z]{2,}")
+
 VK_VOLUME_MUTE = 0xAD
 VK_VOLUME_DOWN = 0xAE
 VK_VOLUME_UP   = 0xAF
@@ -236,7 +239,10 @@ def open_application(app_name: str) -> str:
 
     # ── Direct URL ────────────────────────────────────
     if any(app.endswith(ext) for ext in [".com", ".org", ".net", ".io", ".lk", ".ai", ".co", ".app", ".edu"]):
-        url = f"https://{app}" if not app.startswith("http") else app
+        host = re.sub(r"^https?://", "", app)
+        if not SAFE_HOSTNAME.fullmatch(host):
+            return search_google(app_name, in_chrome=True)
+        url = f"https://{host}"
         open_in_browser(url, force_chrome=True)
         return f"Opening {app} in Chrome, {config.USER_NAME}."
 
