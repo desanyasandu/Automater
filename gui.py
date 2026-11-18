@@ -138,7 +138,7 @@ class DYDApp(ctk.CTk):
             if prompt is None:
                 break
 
-            self.after(0, lambda: self.update_state("processing"))
+            self.after(0, lambda: (self.update_state("processing"), self.chat.show_typing()))
             try:
                 response = self.brain.process_command(prompt)
             except Exception as e:
