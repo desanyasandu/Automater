@@ -23,15 +23,19 @@ class Sidebar(ctk.CTkFrame):
         self.pack_propagate(False)
         pad = theme.SPACE_LG
 
-        self.orb = AssistantOrb(self, size=180)
-        self.orb.pack(pady=(theme.SPACE_XL, theme.SPACE_SM))
+        # Packed first so it keeps its space when the window is short
+        self.stats = SystemStats(self)
+        self.stats.pack(side="bottom", fill="x", padx=pad, pady=pad)
+
+        self.orb = AssistantOrb(self, size=148)
+        self.orb.pack(pady=(theme.SPACE_LG, theme.SPACE_XS))
 
         self.state_title = ctk.CTkLabel(self, text="", font=theme.font(16, "bold", "display"),
                                         text_color=theme.TEXT, height=22)
         self.state_title.pack()
         self.state_hint = ctk.CTkLabel(self, text="", font=theme.font(12), text_color=theme.TEXT_MUTED,
                                        height=18)
-        self.state_hint.pack(pady=(2, theme.SPACE_LG))
+        self.state_hint.pack(pady=(2, theme.SPACE_MD))
 
         self.voice_btn = IconTextButton(self, icons.MIC, "Tap to speak", on_voice, height=46)
         self.voice_btn.pack(fill="x", padx=pad)
@@ -41,11 +45,11 @@ class Sidebar(ctk.CTkFrame):
             text_color=theme.TEXT_MUTED, progress_color=theme.ACCENT, button_color=theme.TEXT,
             button_hover_color="#ffffff", fg_color=theme.SURFACE_3, command=on_wake_toggle,
         )
-        self.wake_switch.pack(anchor="w", padx=pad + 2, pady=(theme.SPACE_MD, theme.SPACE_LG))
+        self.wake_switch.pack(anchor="w", padx=pad + 2, pady=(theme.SPACE_MD, theme.SPACE_MD))
 
         ctk.CTkFrame(self, height=1, fg_color=theme.BORDER_SOFT).pack(fill="x", padx=pad)
 
-        SectionLabel(self, "Quick actions").pack(fill="x", padx=pad + 2, pady=(theme.SPACE_LG, 4))
+        SectionLabel(self, "Quick actions").pack(fill="x", padx=pad + 2, pady=(theme.SPACE_MD, 2))
         actions = [
             (icons.PC, "System status", "CPU, memory and battery", lambda: on_run("check the pc status")),
             (icons.CAMERA, "Take a screenshot", "Saved to Pictures", lambda: on_run("take a screenshot")),
@@ -54,10 +58,7 @@ class Sidebar(ctk.CTkFrame):
              lambda: on_prefill("send message to ", " on whatsapp saying ")),
         ]
         for glyph, title, sub, cmd in actions:
-            ActionRow(self, glyph, title, sub, cmd).pack(fill="x", padx=pad - 8, pady=1)
-
-        self.stats = SystemStats(self)
-        self.stats.pack(side="bottom", fill="x", padx=pad, pady=pad)
+            ActionRow(self, glyph, title, sub, cmd).pack(fill="x", padx=pad - 8, pady=0)
 
         self.set_state("idle")
 

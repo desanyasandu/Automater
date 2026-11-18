@@ -53,7 +53,7 @@ class ActionRow(ctk.CTkFrame):
     def __init__(self, parent, glyph, title, subtitle, command):
         super().__init__(parent, fg_color="transparent", corner_radius=theme.RADIUS_SM, cursor="hand2")
         tile = ctk.CTkFrame(self, width=32, height=32, corner_radius=8, fg_color=theme.SURFACE_2)
-        tile.pack(side="left", padx=(8, 10), pady=6)
+        tile.pack(side="left", padx=(8, 10), pady=4)
         tile.pack_propagate(False)
         ctk.CTkLabel(tile, text=glyph, font=theme.font(14, kind="icons"),
                      text_color=theme.ACCENT).place(relx=0.5, rely=0.5, anchor="center")
