@@ -13,6 +13,16 @@ SYSTEM_INSTRUCTION = (
     "Always be concise (1-2 sentences max). Never include markdown or emojis in spoken responses."
 )
 
+# ─── Secret redaction ─────────────────────────────────────────────────────────
+KEY_PATTERN = re.compile(r"(sk-[A-Za-z0-9_-]{8,}|AIza[0-9A-Za-z_-]{20,}|AQ\.[0-9A-Za-z_.-]{20,})")
+
+def redact_secrets(text: str) -> str:
+    """Remove API keys from text before it is shown, spoken or logged."""
+    for key in (config.get_api_key(), config.get_openai_key(), config.get_claude_key()):
+        if key:
+            text = text.replace(key, "[hidden]")
+    return KEY_PATTERN.sub("[hidden]", text)
+
 # ─── Fast local dispatcher (0-1ms, no API call) ───────────────────────────────
 
 def fast_local_dispatch(text: str) -> str | None:
@@ -157,7 +167,7 @@ class DYDBrain:
             self._chat_history = []
             return True
         except Exception as e:
-            print(f"[DYD] Gemini init error: {e}")
+            print(f"[DYD] Gemini init error: {redact_secrets(str(e))}")
             return False
 
     # ── Cloud AI Queries ───────────────────────────────────────────────────────
@@ -295,10 +305,11 @@ class DYDBrain:
         provider = config.get_ai_provider()
         with self.lock:
             if provider == "OLLAMA":
-                return self.query_ollama(clean)
+                reply = self.query_ollama(clean)
             elif provider == "OPENAI":
-                return self.query_openai(clean)
+                reply = self.query_openai(clean)
             elif provider == "CLAUDE":
-                return self.query_claude(clean)
+                reply = self.query_claude(clean)
             else:
-                return self.query_gemini(clean)
+                reply = self.query_gemini(clean)
+        return redact_secrets(reply)
