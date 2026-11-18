@@ -18,6 +18,7 @@ class ChatView(ctk.CTkScrollableFrame):
         self._wrap = 480
         self._typing = None
         self._empty = None
+        self.on_copy = None
         self.bind("<Configure>", self._on_resize)
 
     # ── Public API ─────────────────────────────────────────────────────────────
@@ -50,6 +51,8 @@ class ChatView(ctk.CTkScrollableFrame):
             justify="left", anchor="w", wraplength=self._wrap,
         )
         label.pack(padx=14, pady=9)
+        for w in (bubble, label):
+            w.bind("<Button-3>", lambda _e, t=text: self._copy(t))
         self._labels.append(label)
         self.scroll_to_bottom()
         return row
@@ -120,6 +123,12 @@ class ChatView(ctk.CTkScrollableFrame):
         self.after(10, lambda: (self.update_idletasks(), self._parent_canvas.yview_moveto(1.0)))
 
     # ── Internals ──────────────────────────────────────────────────────────────
+
+    def _copy(self, text: str):
+        self.clipboard_clear()
+        self.clipboard_append(text)
+        if self.on_copy:
+            self.on_copy()
 
     def _on_resize(self, event):
         scale = ctk.ScalingTracker.get_widget_scaling(self)

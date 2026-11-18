@@ -39,6 +39,7 @@ class DYDApp(ctk.CTk):
         self._build_ui()
         self._bind_shortcuts()
         self.toast = Toast(self)
+        self.chat.on_copy = lambda: self.toast.show("Message copied", "info")
         self._check_initial_keys()
 
         # Dedicated sequential command worker
