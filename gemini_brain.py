@@ -13,6 +13,8 @@ SYSTEM_INSTRUCTION = (
     "Always be concise (1-2 sentences max). Never include markdown or emojis in spoken responses."
 )
 
+MAX_HISTORY_MESSAGES = 6
+
 # ─── Secret redaction ─────────────────────────────────────────────────────────
 KEY_PATTERN = re.compile(r"(sk-[A-Za-z0-9_-]{8,}|AIza[0-9A-Za-z_-]{20,}|AQ\.[0-9A-Za-z_.-]{20,})")
 
@@ -179,7 +181,7 @@ class DYDBrain:
         try:
             contents = []
             # Include recent history (last 6 messages for context)
-            for h in self._chat_history[-6:]:
+            for h in self._chat_history[-MAX_HISTORY_MESSAGES:]:
                 contents.append(h)
             contents.append(types.Content(
                 role="user",
@@ -200,6 +202,8 @@ class DYDBrain:
             # Save to history
             self._chat_history.append(types.Content(role="user", parts=[types.Part(text=prompt)]))
             self._chat_history.append(types.Content(role="model", parts=[types.Part(text=reply)]))
+            # Only the last few turns are ever sent, so don't keep the rest in memory
+            self._chat_history = self._chat_history[-MAX_HISTORY_MESSAGES:]
             return reply
         except Exception as e:
             err = str(e)
