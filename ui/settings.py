@@ -112,8 +112,8 @@ class SettingsDialog(ctk.CTkToplevel):
         tabs = ctk.CTkTabview(
             self, fg_color=theme.SURFACE, corner_radius=theme.RADIUS_LG, border_width=1,
             border_color=theme.BORDER_SOFT, segmented_button_fg_color=theme.SURFACE_2,
-            segmented_button_selected_color=theme.SURFACE_3,
-            segmented_button_selected_hover_color=theme.SURFACE_3,
+            segmented_button_selected_color=SELECTED,
+            segmented_button_selected_hover_color=SELECTED,
             segmented_button_unselected_color=theme.SURFACE_2,
             segmented_button_unselected_hover_color=theme.SURFACE_3, text_color=theme.TEXT,
         )
