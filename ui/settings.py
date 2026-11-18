@@ -8,6 +8,9 @@ from ui import theme, icons
 from ui.widgets import SectionLabel
 from speech_engine import get_best_microphone_index
 
+# Muted accent so white segment text stays readable
+SELECTED = theme.blend(theme.ACCENT_SOFT, theme.ACCENT, 0.45)
+
 PROVIDERS = ["GEMINI", "OPENAI", "CLAUDE", "OLLAMA"]
 PROVIDER_INFO = {
     "GEMINI": "Google's fast multimodal models. Free tier available with your own key.",
@@ -112,7 +115,7 @@ class SettingsDialog(ctk.CTkToplevel):
         self.provider_var = ctk.StringVar(value=current)
         ctk.CTkSegmentedButton(
             page, values=names, variable=self.provider_var, height=36, font=theme.font(12, "bold"),
-            fg_color=theme.SURFACE_2, selected_color=theme.ACCENT, selected_hover_color=theme.ACCENT_HOVER,
+            fg_color=theme.SURFACE_2, selected_color=SELECTED, selected_hover_color=SELECTED,
             unselected_color=theme.SURFACE_2, unselected_hover_color=theme.SURFACE_3,
             text_color=theme.TEXT, command=lambda _v: self._show_provider(),
         ).pack(fill="x")
