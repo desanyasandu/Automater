@@ -51,6 +51,11 @@ COMMON_WEBSITES = {
     "whatsapp web": "https://web.whatsapp.com",
 }
 
+def _shell_start(target: str):
+    """Open a fixed app/URI with Windows 'start' without building a shell string."""
+    subprocess.Popen(["cmd", "/c", "start", "", target],
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
 def _get_chrome_path() -> str | None:
     for p in CHROME_PATHS:
         if os.path.exists(p):
@@ -259,10 +264,9 @@ def open_application(app_name: str) -> str:
         if app in keys:
             def _launch(c=cmd, s=use_shell):
                 if s:
-                    os.system(f"start {c}")
+                    _shell_start(c)
                 else:
-                    subprocess.Popen(c, shell=True,
-                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    subprocess.Popen([c], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             threading.Thread(target=_launch, daemon=True).start()
             return f"Opening {app_name.title()}, {config.USER_NAME}."
 
