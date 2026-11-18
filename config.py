@@ -76,8 +76,14 @@ def save_claude_key(key: str):
 def get_claude_model() -> str:
     return get_setting("CLAUDE_MODEL", "claude-haiku-5-5")
 
+DEFAULT_OLLAMA_URL = "http://localhost:11434"
+
 def get_ollama_url() -> str:
-    return get_setting("OLLAMA_URL", "http://localhost:11434")
+    url = get_setting("OLLAMA_URL", DEFAULT_OLLAMA_URL).strip()
+    # Only plain http(s) endpoints - never file:// or other schemes
+    if not re.match(r"^https?://[^\s/]+", url, re.IGNORECASE):
+        return DEFAULT_OLLAMA_URL
+    return url
 
 def save_ollama_url(url: str):
     save_setting("OLLAMA_URL", url)
