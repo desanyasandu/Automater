@@ -190,7 +190,7 @@ def send_whatsapp(contact: str, message: str) -> str:
         return "pyautogui or pyperclip is not installed."
 
     def _send():
-        os.system("start whatsapp:")
+        _shell_start("whatsapp:")
         time.sleep(1.8)
         pyautogui.hotkey("ctrl", "f")
         time.sleep(0.4)
@@ -272,12 +272,12 @@ def open_application(app_name: str) -> str:
 
     if app in ["spotify", "music"]:
         def _spotify():
-            os.system("start spotify:")
+            _shell_start("spotify:")
         threading.Thread(target=_spotify, daemon=True).start()
         return f"Opening Spotify, {config.USER_NAME}."
 
     if app in ["whatsapp", "whats app"]:
-        threading.Thread(target=lambda: os.system("start whatsapp:"), daemon=True).start()
+        threading.Thread(target=lambda: _shell_start("whatsapp:"), daemon=True).start()
         return f"Opening WhatsApp, {config.USER_NAME}."
 
     # ── Fallback: Google search ────────────────────────
