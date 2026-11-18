@@ -37,6 +37,7 @@ class DYDApp(ctk.CTk):
         self._history_pos = 0
 
         self._build_ui()
+        self._bind_shortcuts()
         self.toast = Toast(self)
         self._check_initial_keys()
 
@@ -111,6 +112,13 @@ class DYDApp(ctk.CTk):
              "Search for the weather today", "Open notepad"],
             on_pick=self.execute_prompt,
         )
+
+    def _bind_shortcuts(self):
+        self.bind("<Control-m>", lambda _e: self.toggle_voice_listen())
+        self.bind("<Control-comma>", lambda _e: self.open_settings_window())
+        self.bind("<Control-l>", lambda _e: self.clear_chat())
+        self.bind("<Control-k>", lambda _e: self.input_entry.focus_set())
+        self.after(200, self.input_entry.focus_set)
 
     def _check_initial_keys(self):
         provider = config.get_ai_provider()
