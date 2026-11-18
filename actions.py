@@ -193,6 +193,18 @@ def send_whatsapp(contact: str, message: str) -> str:
         return "pyautogui or pyperclip is not installed."
 
     def _send():
+        try:
+            previous_clipboard = pyperclip.paste()
+        except Exception:
+            previous_clipboard = None
+        try:
+            _type_whatsapp(contact, message)
+        finally:
+            # Don't leave the message sitting in the user's clipboard
+            if previous_clipboard is not None:
+                pyperclip.copy(previous_clipboard)
+
+    def _type_whatsapp(contact, message):
         _shell_start("whatsapp:")
         time.sleep(1.8)
         pyautogui.hotkey("ctrl", "f")
