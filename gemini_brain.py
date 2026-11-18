@@ -15,6 +15,8 @@ SYSTEM_INSTRUCTION = (
 
 MAX_HISTORY_MESSAGES = 6
 MAX_INPUT_CHARS = 2000
+# "Hey DYD, ..." / "Jarvis: ..." - whole word only, so "dydx" or "jarvisville" are left alone
+WAKE_WORD = re.compile(r"^(?:hey\s+)?(?:dyd|jarvis)\b[\s,:.-]*", re.IGNORECASE)
 
 # ─── Secret redaction ─────────────────────────────────────────────────────────
 KEY_PATTERN = re.compile(r"(sk-[A-Za-z0-9_-]{8,}|AIza[0-9A-Za-z_-]{20,}|AQ\.[0-9A-Za-z_.-]{20,})")
@@ -309,10 +311,7 @@ class DYDBrain:
         clean = user_text.strip()[:MAX_INPUT_CHARS]
 
         # Strip wake words
-        for wake in ["hey dyd", "dyd,", "hey dyd,", "dyd", "hey jarvis,", "hey jarvis", "jarvis,", "jarvis"]:
-            if clean.lower().startswith(wake):
-                clean = clean[len(wake):].strip(" ,:.-")
-                break
+        clean = WAKE_WORD.sub("", clean, count=1)
 
         if not clean:
             return f"Yes {config.USER_NAME}? How can DYD assist you?"
