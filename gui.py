@@ -96,6 +96,9 @@ class DYDApp(ctk.CTk):
         ctk.CTkButton(box, text=icons.SEND, font=theme.font(15, kind="icons"), width=40, height=40,
                       corner_radius=10, fg_color=theme.ACCENT, hover_color=theme.ACCENT_HOVER,
                       text_color=theme.ON_ACCENT, command=self.send_text_command).pack(side="right", padx=6, pady=6)
+        ctk.CTkLabel(composer, text="Enter to send  ·  ↑ previous command  ·  Ctrl+M speak  ·  Ctrl+L clear"
+                                    "  ·  Ctrl+, settings  ·  Right-click a message to copy",
+                     font=theme.font(11), text_color=theme.TEXT_FAINT, height=16).pack(pady=(8, 0))
 
         self.chat = ChatView(panel, assistant_name=config.ASSISTANT_NAME)
         self.chat.pack(fill="both", expand=True, padx=2)
