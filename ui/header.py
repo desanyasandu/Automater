@@ -1,5 +1,6 @@
 """Top bar: brand, live status, active model and settings."""
 import customtkinter as ctk
+from PIL import Image
 
 import config
 from ui import theme, icons
@@ -38,12 +39,15 @@ class Header(ctk.CTkFrame):
 
         brand = ctk.CTkFrame(self, fg_color="transparent")
         brand.pack(side="left", padx=theme.SPACE_XL)
-        mark = ctk.CTkFrame(brand, width=34, height=34, corner_radius=10, fg_color=theme.ACCENT_SOFT,
-                            border_width=1, border_color=theme.blend(theme.ACCENT_SOFT, theme.ACCENT, 0.35))
-        mark.pack(side="left")
-        mark.pack_propagate(False)
-        ctk.CTkLabel(mark, text=config.ASSISTANT_NAME[:1].upper(), font=theme.font(16, "bold", "display"),
-                     text_color=theme.ACCENT).place(relx=0.5, rely=0.5, anchor="center")
+        if theme.ICON_PNG.exists():
+            logo = ctk.CTkImage(Image.open(theme.ICON_PNG), size=(36, 36))
+            ctk.CTkLabel(brand, image=logo, text="").pack(side="left")
+        else:
+            mark = ctk.CTkFrame(brand, width=34, height=34, corner_radius=10, fg_color=theme.ACCENT_SOFT)
+            mark.pack(side="left")
+            mark.pack_propagate(False)
+            ctk.CTkLabel(mark, text=config.ASSISTANT_NAME[:1].upper(), font=theme.font(16, "bold", "display"),
+                         text_color=theme.ACCENT).place(relx=0.5, rely=0.5, anchor="center")
 
         names = ctk.CTkFrame(brand, fg_color="transparent")
         names.pack(side="left", padx=(12, 0))
