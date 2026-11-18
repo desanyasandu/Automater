@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -16,6 +17,9 @@ def get_setting(key: str, default: str = "") -> str:
 
 def save_setting(key: str, value: str):
     """Saves or updates a key-value pair in .env file."""
+    # Strip line breaks so a pasted value can't inject extra lines/settings into .env
+    key = re.sub(r"[^A-Za-z0-9_]", "", key)
+    value = value.replace("\r", "").replace("\n", "")
     lines = []
     found = False
     if ENV_PATH.exists():
