@@ -13,13 +13,6 @@ SYSTEM_INSTRUCTION = (
     "Always be concise (1-2 sentences max). Never include markdown or emojis in spoken responses."
 )
 
-CANDIDATE_GEMINI_MODELS = [
-    "gemini-2.0-flash",
-    "gemini-2.5-flash-preview-05-20",
-    "gemini-1.5-flash",
-    "gemini-1.5-flash-8b",
-]
-
 # ─── Fast local dispatcher (0-1ms, no API call) ───────────────────────────────
 
 def fast_local_dispatch(text: str) -> str | None:
@@ -159,17 +152,10 @@ class DYDBrain:
             return False
         try:
             self._genai_client = genai.Client(api_key=key)
-            # Test with first candidate model
-            for model_name in CANDIDATE_GEMINI_MODELS:
-                try:
-                    # Quick test to validate model
-                    self.active_gemini_model = model_name
-                    print(f"[DYD] Using Gemini model: {model_name}")
-                    self._chat_history = []
-                    return True
-                except Exception as e:
-                    print(f"[DYD] Gemini {model_name} unavailable: {e}")
-            return False
+            self.active_gemini_model = config.get_gemini_model()
+            print(f"[DYD] Using Gemini model: {self.active_gemini_model}")
+            self._chat_history = []
+            return True
         except Exception as e:
             print(f"[DYD] Gemini init error: {e}")
             return False
@@ -239,7 +225,7 @@ class DYDBrain:
                 "https://api.openai.com/v1/chat/completions",
                 headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
                 json={
-                    "model": "gpt-4o-mini",
+                    "model": config.get_openai_model(),
                     "messages": [
                         {"role": "system", "content": SYSTEM_INSTRUCTION},
                         {"role": "user", "content": prompt}
@@ -267,7 +253,7 @@ class DYDBrain:
                     "content-type": "application/json"
                 },
                 json={
-                    "model": "claude-3-5-sonnet-20241022",
+                    "model": config.get_claude_model(),
                     "system": SYSTEM_INSTRUCTION,
                     "messages": [{"role": "user", "content": prompt}],
                     "max_tokens": 150
@@ -292,7 +278,7 @@ class DYDBrain:
         clean = user_text.strip()
 
         # Strip wake words
-        for wake in ["hey dyd", "dyd,", "hey dyd,", "dyd", "hey jarvis,", "hey jarvis", "jarvis,"  "jarvis"]:
+        for wake in ["hey dyd", "dyd,", "hey dyd,", "dyd", "hey jarvis,", "hey jarvis", "jarvis,", "jarvis"]:
             if clean.lower().startswith(wake):
                 clean = clean[len(wake):].strip(" ,:.-")
                 break

@@ -18,3 +18,7 @@ env/
 # OS files
 Thumbs.db
 Desktop.ini
+demo/
+
+# Local backups
+*.bak

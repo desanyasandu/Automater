@@ -51,17 +51,26 @@ def get_api_key() -> str:
 def save_api_key(new_key: str):
     save_setting("GEMINI_API_KEY", new_key)
 
+def get_gemini_model() -> str:
+    return get_setting("GEMINI_MODEL", "gemini-2.5-flash")
+
 def get_openai_key() -> str:
     return get_setting("OPENAI_API_KEY", "")
 
 def save_openai_key(key: str):
     save_setting("OPENAI_API_KEY", key)
 
+def get_openai_model() -> str:
+    return get_setting("OPENAI_MODEL", "gpt-4o-mini")
+
 def get_claude_key() -> str:
     return get_setting("CLAUDE_API_KEY", "")
 
 def save_claude_key(key: str):
     save_setting("CLAUDE_API_KEY", key)
+
+def get_claude_model() -> str:
+    return get_setting("CLAUDE_MODEL", "claude-haiku-5-5")
 
 def get_ollama_url() -> str:
     return get_setting("OLLAMA_URL", "http://localhost:11434")
