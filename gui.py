@@ -33,6 +33,8 @@ class DYDApp(ctk.CTk):
         self.is_listening = False
         self.auto_listen_active = False
         self.cmd_queue = queue.Queue()
+        self._history: list[str] = []
+        self._history_pos = 0
 
         self._build_ui()
         self.toast = Toast(self)
@@ -86,6 +88,8 @@ class DYDApp(ctk.CTk):
         )
         self.input_entry.pack(side="left", fill="x", expand=True, padx=(theme.SPACE_MD, 0))
         self.input_entry.bind("<Return>", lambda _e: self.send_text_command())
+        self.input_entry.bind("<Up>", lambda _e: self._recall_history(-1))
+        self.input_entry.bind("<Down>", lambda _e: self._recall_history(1))
         self.input_entry.bind("<FocusIn>", lambda _e: box.configure(border_color=theme.ACCENT))
         self.input_entry.bind("<FocusOut>", lambda _e: box.configure(border_color=theme.BORDER))
         ctk.CTkButton(box, text=icons.SEND, font=theme.font(15, kind="icons"), width=40, height=40,
@@ -138,7 +142,20 @@ class DYDApp(ctk.CTk):
         if not cmd:
             return
         self.input_entry.delete(0, "end")
+        if not self._history or self._history[-1] != cmd:
+            self._history.append(cmd)
+        self._history_pos = len(self._history)
         self.execute_prompt(cmd)
+
+    def _recall_history(self, step: int):
+        """Up/Down in the command box cycles through previously typed commands."""
+        if not self._history:
+            return "break"
+        self._history_pos = max(0, min(len(self._history), self._history_pos + step))
+        text = self._history[self._history_pos] if self._history_pos < len(self._history) else ""
+        self.input_entry.delete(0, "end")
+        self.input_entry.insert(0, text)
+        return "break"
 
     def execute_prompt(self, user_text: str):
         self.append_chat("USER", user_text)
