@@ -76,6 +76,8 @@ class SettingsDialog(ctk.CTkToplevel):
         self.transient(parent)
 
         self._build()
+        self.bind("<Escape>", lambda _e: self.destroy())
+        self.bind("<Control-s>", lambda _e: self._save())
         self.after(120, self._make_modal)
 
     def _make_modal(self):
