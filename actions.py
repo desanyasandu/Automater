@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import time
 import threading
@@ -15,6 +16,9 @@ CHROME_PATHS = [
     r"C:\Program Files\Google\Chrome\Application\chrome.exe",
     r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
 ]
+
+# Only letters, digits, spaces, dots, dashes and underscores may reach taskkill
+SAFE_PROCESS_NAME = re.compile(r"[a-z0-9 ._-]{1,64}")
 
 VK_VOLUME_MUTE = 0xAD
 VK_VOLUME_DOWN = 0xAE
@@ -307,10 +311,17 @@ def close_application(app_name: str) -> str:
         "telegram":             ["Telegram.exe"],
     }
 
-    targets = PROC_MAP.get(app, [f"{app}.exe"])
+    if app in PROC_MAP:
+        targets = PROC_MAP[app]
+    elif SAFE_PROCESS_NAME.fullmatch(app):
+        targets = [f"{app}.exe"]
+    else:
+        return f"Sorry {config.USER_NAME}, '{app_name}' is not a valid application name."
+
     def _kill():
         for proc in targets:
-            os.system(f'taskkill /f /im "{proc}" /t >nul 2>&1')
+            subprocess.run(["taskkill", "/f", "/im", proc, "/t"],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     threading.Thread(target=_kill, daemon=True).start()
     return f"Closing {app_name.title()}, {config.USER_NAME}."
 
