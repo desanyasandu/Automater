@@ -41,8 +41,22 @@ pip install -r requirements.txt
 copy .env.example .env
 ```
 
-Open `.env` and add your API key (or set it later in the app's Settings). To use WhatsApp commands,
-add contacts as `NAME=countrycode+number`, e.g. `DAD=94771234567`.
+### 🔑 Bring your own API key
+
+**No API key is included in this repository.** To use a cloud AI provider you must create your own key:
+
+| Provider | Get a key |
+|---|---|
+| Google Gemini (free tier) | <https://aistudio.google.com/apikey> |
+| OpenAI | <https://platform.openai.com/api-keys> |
+| Anthropic Claude | <https://console.anthropic.com/settings/keys> |
+| Ollama (no key needed) | <https://ollama.com/download> |
+
+Paste it into `.env` (e.g. `GEMINI_API_KEY=your_key`) or into **⚙ Settings & AI Models** in the app.
+Keys are saved only to your local `.env`, which is git-ignored — never commit it or share it.
+If the app says your key was rejected, create a new one and enter it in Settings.
+
+To use WhatsApp commands, add contacts as `NAME=countrycode+number`, e.g. `DAD=94771234567`.
 
 > If `pip install PyAudio` fails, update pip (`python -m pip install --upgrade pip`) and try again.
 
