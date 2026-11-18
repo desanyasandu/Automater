@@ -194,7 +194,9 @@ class DYDBrain:
                     temperature=0.7,
                 )
             )
-            reply = response.text.strip()
+            reply = (response.text or "").strip()
+            if not reply:
+                return f"I don't have an answer for that, {config.USER_NAME}."
             # Save to history
             self._chat_history.append(types.Content(role="user", parts=[types.Part(text=prompt)]))
             self._chat_history.append(types.Content(role="model", parts=[types.Part(text=reply)]))
