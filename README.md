@@ -15,7 +15,9 @@ else goes to the AI provider you choose: **Google Gemini, OpenAI, Anthropic Clau
 
 ## Features
 
-- **Choose your AI** in *⚙ Settings & AI Models*: Gemini, OpenAI, Claude, or Ollama (free, offline).
+- **Modern interface** — chat bubbles, an animated status orb, live CPU/memory/battery stats, a welcome
+  screen with suggested commands, toast notifications and keyboard shortcuts.
+- **Choose your AI** in *Settings*: Gemini, OpenAI, Claude, or Ollama (free, offline), each with its own model.
 - **Local commands, no AI round trip** — handled instantly by pattern matching:
   - Apps: "Open Chrome", "Open Notepad", "Close Spotify"
   - Web: "Search for Python tutorials", "Open github.com in Chrome"
@@ -57,7 +59,7 @@ copy .env.example .env
 | Anthropic Claude | <https://console.anthropic.com/settings/keys> |
 | Ollama (no key needed) | <https://ollama.com/download> |
 
-Paste it into `.env` (e.g. `GEMINI_API_KEY=your_key`) or into **⚙ Settings & AI Models** in the app.
+Paste it into `.env` (e.g. `GEMINI_API_KEY=your_key`) or into **Settings → API keys** in the app (gear icon, or `Ctrl+,`).
 Keys are saved only to your local `.env`, which is git-ignored — never commit it or share it.
 If the app says your key was rejected, create a new one and enter it in Settings.
 
@@ -72,6 +74,18 @@ Double-click `run.bat`, or:
 ```bash
 python main.py
 ```
+
+## Keyboard shortcuts
+
+| Shortcut | Action |
+|---|---|
+| `Enter` | Send the command |
+| `↑` / `↓` | Cycle through previous commands |
+| `Ctrl+M` | Start voice input |
+| `Ctrl+K` | Focus the command box |
+| `Ctrl+L` | Clear the conversation |
+| `Ctrl+,` | Open settings (`Esc` closes, `Ctrl+S` saves) |
+| Right-click a message | Copy it |
 
 ## Configuration
 
@@ -91,7 +105,12 @@ All settings live in `.env` and can be changed from the Settings window:
 | File | Purpose |
 |---|---|
 | `main.py` | Entry point |
-| `gui.py` | CustomTkinter interface and settings window |
+| `gui.py` | Main window: wires the UI components to the assistant |
+| `ui/theme.py` | Design tokens — colors, fonts, spacing |
+| `ui/header.py`, `ui/sidebar.py`, `ui/chat.py` | Header bar, left panel and conversation view |
+| `ui/orb.py`, `ui/stats.py` | Animated status orb and live system stats |
+| `ui/settings.py`, `ui/toast.py`, `ui/widgets.py` | Settings dialog, notifications and shared widgets |
+| `assets/` | App icon |
 | `gemini_brain.py` | Local command dispatcher and AI provider calls |
 | `actions.py` | Desktop automation (apps, volume, WhatsApp, YouTube, screenshots) |
 | `speech_engine.py` | Speech recognition and text-to-speech |
