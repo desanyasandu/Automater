@@ -22,3 +22,11 @@ demo/
 
 # Local backups
 *.bak
+
+# Any local env variants (keep the example)
+.env.*
+!.env.example
+
+# Logs and screenshots
+*.log
+Screenshot_*.png
