@@ -72,3 +72,17 @@ class SectionLabel(ctk.CTkLabel):
     def __init__(self, parent, text):
         super().__init__(parent, text=text.upper(), font=theme.font(10, "bold"),
                          text_color=theme.TEXT_FAINT, anchor="w", height=16)
+
+
+def center_window(win, width: int, height: int, over=None):
+    """Size a window (in logical px) and center it on the screen or over another window."""
+    scale = ctk.ScalingTracker.get_window_scaling(win)
+    real_w, real_h = round(width * scale), round(height * scale)
+    if over is not None and over.winfo_viewable():
+        over.update_idletasks()
+        x = over.winfo_rootx() + (over.winfo_width() - real_w) // 2
+        y = over.winfo_rooty() + (over.winfo_height() - real_h) // 3
+    else:
+        x = (win.winfo_screenwidth() - real_w) // 2
+        y = (win.winfo_screenheight() - real_h) // 3
+    win.geometry(f"{width}x{height}+{max(0, x)}+{max(0, y)}")

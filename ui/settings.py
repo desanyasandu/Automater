@@ -6,7 +6,7 @@ import speech_recognition as sr
 
 import config
 from ui import theme, icons
-from ui.widgets import SectionLabel
+from ui.widgets import SectionLabel, center_window
 from speech_engine import get_best_microphone_index
 
 # Muted accent so white segment text stays readable
@@ -71,7 +71,7 @@ class SettingsDialog(ctk.CTkToplevel):
         self.on_saved = on_saved
         self.title("Settings")
         self.configure(fg_color=theme.BG)
-        self.geometry("620x640")
+        center_window(self, 620, 640, over=parent)
         self.minsize(560, 560)
         self.transient(parent)
 

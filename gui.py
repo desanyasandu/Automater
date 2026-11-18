@@ -12,6 +12,7 @@ from ui.header import Header
 from ui.settings import SettingsDialog
 from ui.sidebar import Sidebar
 from ui.toast import Toast
+from ui.widgets import center_window
 
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
@@ -22,7 +23,7 @@ class DYDApp(ctk.CTk):
         super().__init__()
 
         self.title(f"{config.ASSISTANT_NAME} — Desktop Assistant")
-        self.geometry("1120x740")
+        center_window(self, 1120, 740)
         self.minsize(920, 620)
         self.configure(fg_color=theme.BG)
 
